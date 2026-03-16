@@ -3,31 +3,32 @@ import type { Transaction } from './types'
 
 function parseTimestamp(timestampStr: string): Date {
   // Always try DD/MM/YYYY format first (European format)
-  // Match: DD/MM/YYYY or DD/MM/YYYY HH:MM:SS or DD/MM/YYYY HH:MM
-  const dateTimeMatch = timestampStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/)
+  // Match: DD/MM/YYYY with optional time (any separator: space, T, or nothing)
+  // Time formats: HH:MM, HH:MM:SS, H:MM, H:MM:SS
+  const dateTimeMatch = timestampStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[\sT]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/)
   if (dateTimeMatch) {
-    const [, day, month, year, hours = '0', minutes = '0', seconds = '0'] = dateTimeMatch
+    const [, day, month, year, hours, minutes, seconds] = dateTimeMatch
     return new Date(
       parseInt(year),
       parseInt(month) - 1,
       parseInt(day),
-      parseInt(hours),
-      parseInt(minutes),
-      parseInt(seconds)
+      hours ? parseInt(hours) : 0,
+      minutes ? parseInt(minutes) : 0,
+      seconds ? parseInt(seconds) : 0
     )
   }
   
-  // Try ISO format (e.g., 2024-03-15T10:30:00)
-  const isoMatch = timestampStr.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/)
+  // Try ISO format (e.g., 2024-03-15T10:30:00 or 2024-03-15 10:30:00)
+  const isoMatch = timestampStr.match(/^(\d{4})-(\d{2})-(\d{2})(?:[\sT]+(\d{2}):(\d{2})(?::(\d{2}))?)?/)
   if (isoMatch) {
-    const [, year, month, day, hours = '0', minutes = '0', seconds = '0'] = isoMatch
+    const [, year, month, day, hours, minutes, seconds] = isoMatch
     return new Date(
       parseInt(year),
       parseInt(month) - 1,
       parseInt(day),
-      parseInt(hours),
-      parseInt(minutes),
-      parseInt(seconds)
+      hours ? parseInt(hours) : 0,
+      minutes ? parseInt(minutes) : 0,
+      seconds ? parseInt(seconds) : 0
     )
   }
   

@@ -5,12 +5,16 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 interface FilterState {
   selectedMonths: string[]
   selectedYears: string[]
+  selectedCategories: string[]
+  selectedDateRange: { start: string; end: string } | null
 }
 
 interface FilterContextType {
   filters: FilterState
   setSelectedMonths: (months: string[]) => void
   setSelectedYears: (years: string[]) => void
+  setSelectedCategories: (categories: string[]) => void
+  setSelectedDateRange: (range: { start: string; end: string } | null) => void
   resetFilters: () => void
 }
 
@@ -30,7 +34,9 @@ export function FilterProvider({ children }: { children: ReactNode }) {
   
   const [filters, setFilters] = useState<FilterState>({
     selectedMonths: [month],
-    selectedYears: [year]
+    selectedYears: [year],
+    selectedCategories: [],
+    selectedDateRange: null
   })
 
   const setSelectedMonths = useCallback((months: string[]) => {
@@ -41,16 +47,33 @@ export function FilterProvider({ children }: { children: ReactNode }) {
     setFilters(prev => ({ ...prev, selectedYears: years }))
   }, [])
 
+  const setSelectedCategories = useCallback((categories: string[]) => {
+    setFilters(prev => ({ ...prev, selectedCategories: categories }))
+  }, [])
+
+  const setSelectedDateRange = useCallback((range: { start: string; end: string } | null) => {
+    setFilters(prev => ({ ...prev, selectedDateRange: range }))
+  }, [])
+
   const resetFilters = useCallback(() => {
     const { month, year } = getCurrentMonthYear()
     setFilters({
       selectedMonths: [month],
-      selectedYears: [year]
+      selectedYears: [year],
+      selectedCategories: [],
+      selectedDateRange: null
     })
   }, [])
 
   return (
-    <FilterContext.Provider value={{ filters, setSelectedMonths, setSelectedYears, resetFilters }}>
+    <FilterContext.Provider value={{ 
+      filters, 
+      setSelectedMonths, 
+      setSelectedYears, 
+      setSelectedCategories,
+      setSelectedDateRange,
+      resetFilters 
+    }}>
       {children}
     </FilterContext.Provider>
   )

@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Spinner } from '@/components/ui/spinner'
 import { PieChart } from '@/components/charts/pie-chart'
 import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
+import { CategoryFilter, filterByCategory } from '@/components/category-filter'
 import { getCategoryTotals, filterTransactionsByCategory, getDescriptionTotals } from '@/lib/analytics'
 import { useFilters } from '@/contexts/filter-context'
 import { AlertCircle, Wallet, TrendingUp, Tags } from 'lucide-react'
@@ -17,12 +18,14 @@ export default function CategoriesPage() {
   const { data: transactions, isLoading, error } = useFullTransactions()
   const router = useRouter()
   const { filters } = useFilters()
-  const { selectedMonths, selectedYears } = filters
+  const { selectedMonths, selectedYears, selectedCategories } = filters
 
   const filteredTransactions = useMemo(() => {
     if (!transactions) return []
-    return filterByMonthYear(transactions, selectedMonths, selectedYears)
-  }, [transactions, selectedMonths, selectedYears])
+    let filtered = filterByMonthYear(transactions, selectedMonths, selectedYears)
+    filtered = filterByCategory(filtered, selectedCategories)
+    return filtered
+  }, [transactions, selectedMonths, selectedYears, selectedCategories])
 
   if (isLoading) {
     return (
@@ -79,7 +82,10 @@ export default function CategoriesPage() {
             }
           </p>
         </div>
-        <MonthYearFilter transactions={transactions} />
+        <div className="flex flex-wrap items-center gap-2">
+          <CategoryFilter transactions={transactions} />
+          <MonthYearFilter transactions={transactions} />
+        </div>
       </div>
 
       {/* Summary Widgets */}

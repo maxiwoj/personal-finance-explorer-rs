@@ -10,6 +10,7 @@ import { PieChart } from '@/components/charts/pie-chart'
 import { LineChart } from '@/components/charts/line-chart'
 import { TransactionsTable } from '@/components/transactions-table'
 import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
+import { CategoryFilter, filterByCategory } from '@/components/category-filter'
 import { getCategoryTotals, getCumulativeSpending } from '@/lib/analytics'
 import { useFilters } from '@/contexts/filter-context'
 import { AlertCircle, TrendingUp, Wallet } from 'lucide-react'
@@ -17,13 +18,15 @@ import { AlertCircle, TrendingUp, Wallet } from 'lucide-react'
 export default function DashboardPage() {
   const { data: transactions, isLoading, error } = useRecentTransactions()
   const router = useRouter()
-  const { filters } = useFilters()
-  const { selectedMonths, selectedYears } = filters
+  const { filters, setSelectedCategories } = useFilters()
+  const { selectedMonths, selectedYears, selectedCategories } = filters
 
   const filteredTransactions = useMemo(() => {
     if (!transactions) return []
-    return filterByMonthYear(transactions, selectedMonths, selectedYears)
-  }, [transactions, selectedMonths, selectedYears])
+    let filtered = filterByMonthYear(transactions, selectedMonths, selectedYears)
+    filtered = filterByCategory(filtered, selectedCategories)
+    return filtered
+  }, [transactions, selectedMonths, selectedYears, selectedCategories])
 
   if (isLoading) {
     return (
@@ -74,6 +77,15 @@ export default function DashboardPage() {
     router.push(`/category/${encodeURIComponent(category)}`)
   }
 
+  const handlePieSliceClick = (categoryName: string) => {
+    // Toggle category filter when clicking pie slice
+    if (selectedCategories.includes(categoryName)) {
+      setSelectedCategories(selectedCategories.filter(c => c !== categoryName))
+    } else {
+      setSelectedCategories([...selectedCategories, categoryName])
+    }
+  }
+
   const filterLabel = selectedMonths.length === 0 && selectedYears.length === 0
     ? 'All time'
     : `${selectedMonths.length === 0 ? 'All months' : ''} ${selectedYears.length === 1 ? selectedYears[0] : ''}`
@@ -85,7 +97,10 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">Your spending overview</p>
         </div>
-        <MonthYearFilter transactions={transactions} />
+        <div className="flex flex-wrap items-center gap-2">
+          <CategoryFilter transactions={transactions} />
+          <MonthYearFilter transactions={transactions} />
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -138,11 +153,11 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Spending by Category</CardTitle>
-            <CardDescription>Click a slice to view category details</CardDescription>
+            <CardDescription>Click a slice to filter by category</CardDescription>
           </CardHeader>
           <CardContent>
             {pieData.length > 0 ? (
-              <PieChart data={pieData} onSliceClick={handleCategoryClick} height={350} />
+              <PieChart data={pieData} onSliceClick={handlePieSliceClick} height={350} />
             ) : (
               <div className="flex items-center justify-center h-[350px] text-muted-foreground">
                 No transactions in selected period
@@ -155,11 +170,18 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Cumulative Spending</CardTitle>
-            <CardDescription>Running total over time</CardDescription>
+            <CardDescription>Running total over time - use brush tool to select date range</CardDescription>
           </CardHeader>
           <CardContent>
             {lineData.length > 0 ? (
-              <LineChart data={lineData} height={350} />
+              <LineChart 
+                data={lineData} 
+                height={350}
+                onBrushSelect={(start, end) => {
+                  // Could implement date range filtering here
+                  console.log('Date range selected:', start, '-', end)
+                }}
+              />
             ) : (
               <div className="flex items-center justify-center h-[350px] text-muted-foreground">
                 No transactions in selected period
