@@ -1,29 +1,73 @@
 import { SPREADSHEET_ID, SHEETS_API_BASE, SHEETS } from './config'
 import type { Transaction } from './types'
 
-function parseDate(dateStr: string): Date {
-  // Format: DD/MM/YYYY
-  const [day, month, year] = dateStr.split('/').map(Number)
-  return new Date(year, month - 1, day)
+function parseTimestamp(timestampStr: string): Date {
+  // Always try DD/MM/YYYY format first (European format)
+  // Match: DD/MM/YYYY with optional time (any separator: space, T, or nothing)
+  // Time formats: HH:MM, HH:MM:SS, H:MM, H:MM:SS
+  const dateTimeMatch = timestampStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[\sT]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/)
+  if (dateTimeMatch) {
+    const [, day, month, year, hours, minutes, seconds] = dateTimeMatch
+    return new Date(
+      parseInt(year),
+      parseInt(month) - 1,
+      parseInt(day),
+      hours ? parseInt(hours) : 0,
+      minutes ? parseInt(minutes) : 0,
+      seconds ? parseInt(seconds) : 0
+    )
+  }
+  
+  // Try ISO format (e.g., 2024-03-15T10:30:00 or 2024-03-15 10:30:00)
+  const isoMatch = timestampStr.match(/^(\d{4})-(\d{2})-(\d{2})(?:[\sT]+(\d{2}):(\d{2})(?::(\d{2}))?)?/)
+  if (isoMatch) {
+    const [, year, month, day, hours, minutes, seconds] = isoMatch
+    return new Date(
+      parseInt(year),
+      parseInt(month) - 1,
+      parseInt(day),
+      hours ? parseInt(hours) : 0,
+      minutes ? parseInt(minutes) : 0,
+      seconds ? parseInt(seconds) : 0
+    )
+  }
+  
+  // Last resort fallback - try native parsing
+  const fallbackDate = new Date(timestampStr)
+  if (!isNaN(fallbackDate.getTime())) {
+    return fallbackDate
+  }
+  
+  // Return current date if nothing works
+  console.error('Failed to parse date:', timestampStr)
+  return new Date()
 }
 
 function parseRow(row: string[]): Transaction | null {
   try {
-    if (row.length < 8) return null
+    if (row.length < 7) return null
     
-    const [timestamp, what, category, amount, currency, amountPLN, monthYear, monthName] = row
+    // Columns: Timestamp, What, Category, Amount, Currency, AmountPLN, MonthYear, TransactionID
+    const [timestamp, what, category, amount, currency, amountPLN, monthYear, transactionId] = row
     
     if (!timestamp || !what || !category) return null
     
+    const parsedTimestamp = parseTimestamp(timestamp)
+    
+    // Generate monthYear from timestamp if not provided
+    const derivedMonthYear = monthYear?.trim() || 
+      `${parsedTimestamp.getMonth() + 1}_${parsedTimestamp.getFullYear()}`
+    
     return {
-      timestamp: parseDate(timestamp),
+      timestamp: parsedTimestamp,
       what: what.trim(),
       category: category.trim().toLowerCase(),
       amountOriginal: parseFloat(amount) || 0,
       currency: currency?.trim() || 'PLN',
       amountPLN: parseFloat(amountPLN) || parseFloat(amount) || 0,
-      monthYear: monthYear?.trim() || '',
-      monthName: monthName?.trim() || ''
+      monthYear: derivedMonthYear,
+      monthName: '', // Not used - derive from timestamp when needed
+      transactionId: transactionId?.trim() || `${timestamp}-${what}-${Math.random().toString(36).slice(2, 8)}`
     }
   } catch {
     return null

@@ -7,6 +7,7 @@ export type Transaction = {
   amountPLN: number
   monthYear: string
   monthName: string
+  transactionId: string
 }
 
 export type CategoryTotal = {

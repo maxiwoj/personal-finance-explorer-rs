@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useRecentTransactions } from '@/hooks/use-transactions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,12 +9,24 @@ import { Spinner } from '@/components/ui/spinner'
 import { PieChart } from '@/components/charts/pie-chart'
 import { LineChart } from '@/components/charts/line-chart'
 import { TransactionsTable } from '@/components/transactions-table'
-import { getCategoryTotals, getCumulativeSpending, getCurrentMonthSpending } from '@/lib/analytics'
+import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
+import { CategoryFilter, filterByCategory } from '@/components/category-filter'
+import { getCategoryTotals, getCumulativeSpending } from '@/lib/analytics'
+import { useFilters } from '@/contexts/filter-context'
 import { AlertCircle, TrendingUp, Wallet } from 'lucide-react'
 
 export default function DashboardPage() {
   const { data: transactions, isLoading, error } = useRecentTransactions()
   const router = useRouter()
+  const { filters, setSelectedCategories } = useFilters()
+  const { selectedMonths, selectedYears, selectedCategories } = filters
+
+  const filteredTransactions = useMemo(() => {
+    if (!transactions) return []
+    let filtered = filterByMonthYear(transactions, selectedMonths, selectedYears)
+    filtered = filterByCategory(filtered, selectedCategories)
+    return filtered
+  }, [transactions, selectedMonths, selectedYears, selectedCategories])
 
   if (isLoading) {
     return (
@@ -45,9 +58,9 @@ export default function DashboardPage() {
     )
   }
 
-  const monthlySpending = getCurrentMonthSpending(transactions)
-  const categoryTotals = getCategoryTotals(transactions)
-  const cumulativeData = getCumulativeSpending(transactions)
+  const totalSpending = filteredTransactions.reduce((sum, t) => sum + t.amountPLN, 0)
+  const categoryTotals = getCategoryTotals(filteredTransactions)
+  const cumulativeData = getCumulativeSpending(filteredTransactions)
 
   const pieData = categoryTotals.map(c => ({
     name: c.category,
@@ -64,26 +77,45 @@ export default function DashboardPage() {
     router.push(`/category/${encodeURIComponent(category)}`)
   }
 
+  const handlePieSliceClick = (categoryName: string) => {
+    // Toggle category filter when clicking pie slice
+    if (selectedCategories.includes(categoryName)) {
+      setSelectedCategories(selectedCategories.filter(c => c !== categoryName))
+    } else {
+      setSelectedCategories([...selectedCategories, categoryName])
+    }
+  }
+
+  const filterLabel = selectedMonths.length === 0 && selectedYears.length === 0
+    ? 'All time'
+    : `${selectedMonths.length === 0 ? 'All months' : ''} ${selectedYears.length === 1 ? selectedYears[0] : ''}`
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Your recent spending overview</p>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground">Your spending overview</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <CategoryFilter transactions={transactions} />
+          <MonthYearFilter transactions={transactions} />
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Monthly Spending Card */}
+        {/* Total Spending Card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Month</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Spending</CardTitle>
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {monthlySpending.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN
+              {totalSpending.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN
             </div>
             <p className="text-xs text-muted-foreground">
-              Current month spending
+              {filterLabel.trim() || 'Selected period'}
             </p>
           </CardContent>
         </Card>
@@ -95,9 +127,9 @@ export default function DashboardPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{transactions.length}</div>
+            <div className="text-2xl font-bold">{filteredTransactions.length}</div>
             <p className="text-xs text-muted-foreground">
-              Recent transactions loaded
+              Transactions in selected period
             </p>
           </CardContent>
         </Card>
@@ -121,10 +153,16 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Spending by Category</CardTitle>
-            <CardDescription>Click a slice to view category details</CardDescription>
+            <CardDescription>Click a slice to filter by category</CardDescription>
           </CardHeader>
           <CardContent>
-            <PieChart data={pieData} onSliceClick={handleCategoryClick} height={350} />
+            {pieData.length > 0 ? (
+              <PieChart data={pieData} onSliceClick={handlePieSliceClick} height={350} />
+            ) : (
+              <div className="flex items-center justify-center h-[350px] text-muted-foreground">
+                No transactions in selected period
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -132,10 +170,23 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Cumulative Spending</CardTitle>
-            <CardDescription>Running total over time</CardDescription>
+            <CardDescription>Running total over time - use brush tool to select date range</CardDescription>
           </CardHeader>
           <CardContent>
-            <LineChart data={lineData} height={350} />
+            {lineData.length > 0 ? (
+              <LineChart 
+                data={lineData} 
+                height={350}
+                onBrushSelect={(start, end) => {
+                  // Could implement date range filtering here
+                  console.log('Date range selected:', start, '-', end)
+                }}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-[350px] text-muted-foreground">
+                No transactions in selected period
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -144,10 +195,10 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>Recent Transactions</CardTitle>
-          <CardDescription>Your last 20 transactions</CardDescription>
+          <CardDescription>Last 20 transactions in selected period</CardDescription>
         </CardHeader>
         <CardContent>
-          <TransactionsTable transactions={transactions} limit={20} />
+          <TransactionsTable transactions={filteredTransactions} limit={20} />
         </CardContent>
       </Card>
     </div>

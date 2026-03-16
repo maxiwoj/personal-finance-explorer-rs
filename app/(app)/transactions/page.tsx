@@ -10,15 +10,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { TransactionsTable } from '@/components/transactions-table'
-import { filterTransactions, getCategoryTotals, getMonthlyTotals } from '@/lib/analytics'
+import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
+import { getCategoryTotals } from '@/lib/analytics'
+import { useFilters } from '@/contexts/filter-context'
 import { AlertCircle, Search, X } from 'lucide-react'
 
 const ALL_VALUE = '__all__'
 
 export default function TransactionsPage() {
   const { data: transactions, isLoading, error } = useFullTransactions()
+  const { filters, resetFilters } = useFilters()
+  const { selectedMonths, selectedYears } = filters
+  
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL_VALUE)
-  const [monthFilter, setMonthFilter] = useState<string>(ALL_VALUE)
   const [searchQuery, setSearchQuery] = useState('')
 
   const categories = useMemo(() => {
@@ -26,30 +30,38 @@ export default function TransactionsPage() {
     return getCategoryTotals(transactions).map(c => c.category)
   }, [transactions])
 
-  const months = useMemo(() => {
-    if (!transactions) return []
-    return getMonthlyTotals(transactions).map(m => ({
-      value: m.monthYear,
-      label: m.monthName,
-    }))
-  }, [transactions])
-
   const filteredTransactions = useMemo(() => {
     if (!transactions) return []
-    return filterTransactions(transactions, {
-      category: categoryFilter === ALL_VALUE ? undefined : categoryFilter,
-      monthYear: monthFilter === ALL_VALUE ? undefined : monthFilter,
-      search: searchQuery || undefined,
-    })
-  }, [transactions, categoryFilter, monthFilter, searchQuery])
+    
+    // First filter by month/year
+    let filtered = filterByMonthYear(transactions, selectedMonths, selectedYears)
+    
+    // Then by category
+    if (categoryFilter !== ALL_VALUE) {
+      filtered = filtered.filter(t => t.category.toLowerCase() === categoryFilter.toLowerCase())
+    }
+    
+    // Then by search
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(t => t.what.toLowerCase().includes(query))
+    }
+    
+    return filtered
+  }, [transactions, selectedMonths, selectedYears, categoryFilter, searchQuery])
+
+  const currentMonth = String(new Date().getMonth() + 1)
+  const currentYear = String(new Date().getFullYear())
 
   const clearFilters = () => {
+    resetFilters()
     setCategoryFilter(ALL_VALUE)
-    setMonthFilter(ALL_VALUE)
     setSearchQuery('')
   }
 
-  const hasActiveFilters = categoryFilter !== ALL_VALUE || monthFilter !== ALL_VALUE || searchQuery !== ''
+  const hasActiveFilters = categoryFilter !== ALL_VALUE || searchQuery !== '' ||
+    selectedMonths.length !== 1 || selectedYears.length !== 1 ||
+    selectedMonths[0] !== currentMonth || selectedYears[0] !== currentYear
 
   if (isLoading) {
     return (
@@ -100,62 +112,49 @@ export default function TransactionsPage() {
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-2">
                 <X className="h-4 w-4" />
-                Clear filters
+                Reset filters
               </Button>
             )}
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {/* Search */}
-            <div className="space-y-2">
-              <Label htmlFor="search">Search description</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search"
-                  placeholder="Search..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                />
+          <div className="space-y-4">
+            {/* Month/Year Filter */}
+            <MonthYearFilter transactions={transactions} />
+            
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* Search */}
+              <div className="space-y-2">
+                <Label htmlFor="search">Search description</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="search"
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Category Filter */}
-            <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger id="category">
-                  <SelectValue placeholder="All categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_VALUE}>All categories</SelectItem>
-                  {categories.map(cat => (
-                    <SelectItem key={cat} value={cat} className="capitalize">
-                      {cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Month Filter */}
-            <div className="space-y-2">
-              <Label htmlFor="month">Month</Label>
-              <Select value={monthFilter} onValueChange={setMonthFilter}>
-                <SelectTrigger id="month">
-                  <SelectValue placeholder="All months" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_VALUE}>All months</SelectItem>
-                  {months.map(month => (
-                    <SelectItem key={month.value} value={month.value}>
-                      {month.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Category Filter */}
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger id="category">
+                    <SelectValue placeholder="All categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_VALUE}>All categories</SelectItem>
+                    {categories.map(cat => (
+                      <SelectItem key={cat} value={cat} className="capitalize">
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardContent>

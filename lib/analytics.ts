@@ -60,17 +60,26 @@ export function getMonthlyTotals(transactions: Transaction[]): MonthlyTotal[] {
     })
 }
 
-export function getCumulativeSpending(transactions: Transaction[]): { date: string; total: number }[] {
+export function getCumulativeSpending(transactions: Transaction[]): { date: string; total: number; timestamp: number }[] {
+  // Sort by timestamp ascending
   const sorted = [...transactions].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
   
+  // Aggregate by date to avoid duplicate x-axis labels
+  const dailyTotals = new Map<string, { date: string; total: number; timestamp: number }>()
+  
   let cumulative = 0
-  return sorted.map(t => {
+  sorted.forEach(t => {
     cumulative += t.amountPLN
-    return {
-      date: t.timestamp.toLocaleDateString('en-GB'),
-      total: Math.round(cumulative * 100) / 100
-    }
+    const dateStr = t.timestamp.toLocaleDateString('en-GB')
+    dailyTotals.set(dateStr, {
+      date: dateStr,
+      total: Math.round(cumulative * 100) / 100,
+      timestamp: t.timestamp.getTime()
+    })
   })
+  
+  // Return sorted by timestamp
+  return Array.from(dailyTotals.values()).sort((a, b) => a.timestamp - b.timestamp)
 }
 
 export function getCurrentMonthSpending(transactions: Transaction[]): number {
