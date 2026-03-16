@@ -29,21 +29,28 @@ function parseTimestamp(timestampStr: string): Date {
 
 function parseRow(row: string[]): Transaction | null {
   try {
-    if (row.length < 8) return null
+    if (row.length < 7) return null
     
-    const [timestamp, what, category, amount, currency, amountPLN, monthYear, monthName, transactionId] = row
+    // Columns: Timestamp, What, Category, Amount, Currency, AmountPLN, MonthYear, TransactionID
+    const [timestamp, what, category, amount, currency, amountPLN, monthYear, transactionId] = row
     
     if (!timestamp || !what || !category) return null
     
+    const parsedTimestamp = parseTimestamp(timestamp)
+    
+    // Generate monthYear from timestamp if not provided
+    const derivedMonthYear = monthYear?.trim() || 
+      `${parsedTimestamp.getMonth() + 1}_${parsedTimestamp.getFullYear()}`
+    
     return {
-      timestamp: parseTimestamp(timestamp),
+      timestamp: parsedTimestamp,
       what: what.trim(),
       category: category.trim().toLowerCase(),
       amountOriginal: parseFloat(amount) || 0,
       currency: currency?.trim() || 'PLN',
       amountPLN: parseFloat(amountPLN) || parseFloat(amount) || 0,
-      monthYear: monthYear?.trim() || '',
-      monthName: monthName?.trim() || '',
+      monthYear: derivedMonthYear,
+      monthName: '', // Not used - derive from timestamp when needed
       transactionId: transactionId?.trim() || `${timestamp}-${what}-${Math.random().toString(36).slice(2, 8)}`
     }
   } catch {
@@ -55,7 +62,7 @@ export async function fetchSheetData(
   accessToken: string,
   sheetName: string
 ): Promise<Transaction[]> {
-  const range = `${sheetName}!A:I`
+  const range = `${sheetName}!A:H`
   const url = `${SHEETS_API_BASE}/${SPREADSHEET_ID}/values/${encodeURIComponent(range)}`
   
   const response = await fetch(url, {

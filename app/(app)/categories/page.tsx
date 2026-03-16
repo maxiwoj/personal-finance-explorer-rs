@@ -10,7 +10,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { PieChart } from '@/components/charts/pie-chart'
 import { MonthYearFilter, filterByMonthYear, getCurrentMonthYear } from '@/components/month-year-filter'
 import { getCategoryTotals, filterTransactionsByCategory, getDescriptionTotals } from '@/lib/analytics'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, Wallet, TrendingUp, Tags } from 'lucide-react'
 
 export default function CategoriesPage() {
   const { data: transactions, isLoading, error } = useFullTransactions()
@@ -88,6 +88,50 @@ export default function CategoriesPage() {
           onMonthsChange={setSelectedMonths}
           onYearsChange={setSelectedYears}
         />
+      </div>
+
+      {/* Summary Widgets */}
+      <div className="grid gap-6 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Spending</CardTitle>
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {totalSpending.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN
+            </div>
+            <p className="text-xs text-muted-foreground">
+              In selected period
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Transactions</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{filteredTransactions.length}</div>
+            <p className="text-xs text-muted-foreground">
+              Total transactions
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Categories</CardTitle>
+            <Tags className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{categoryTotals.length}</div>
+            <p className="text-xs text-muted-foreground">
+              Different spending categories
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Main Pie Chart */}
