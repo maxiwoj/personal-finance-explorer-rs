@@ -36,8 +36,8 @@ export function TransactionsTable({ transactions, showCategory = true, limit }: 
           </tr>
         </thead>
         <tbody>
-          {displayed.map((t) => (
-            <tr key={t.transactionId} className="border-b last:border-0">
+          {displayed.map((t, index) => (
+            <tr key={`${t.transactionId}-${index}`} className="border-b last:border-0">
               <td className="py-3 text-muted-foreground whitespace-nowrap">
                 {formatDateOnly(t.timestamp)}
               </td>
