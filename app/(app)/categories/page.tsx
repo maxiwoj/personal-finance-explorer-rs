@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useFullTransactions } from '@/hooks/use-transactions'
@@ -8,18 +8,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Spinner } from '@/components/ui/spinner'
 import { PieChart } from '@/components/charts/pie-chart'
-import { MonthYearFilter, filterByMonthYear, getCurrentMonthYear } from '@/components/month-year-filter'
+import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
 import { getCategoryTotals, filterTransactionsByCategory, getDescriptionTotals } from '@/lib/analytics'
+import { useFilters } from '@/contexts/filter-context'
 import { AlertCircle, Wallet, TrendingUp, Tags } from 'lucide-react'
 
 export default function CategoriesPage() {
   const { data: transactions, isLoading, error } = useFullTransactions()
   const router = useRouter()
-  
-  // Default to current month
-  const currentMonthYear = getCurrentMonthYear()
-  const [selectedMonths, setSelectedMonths] = useState<string[]>([currentMonthYear.month])
-  const [selectedYears, setSelectedYears] = useState<string[]>([currentMonthYear.year])
+  const { filters } = useFilters()
+  const { selectedMonths, selectedYears } = filters
 
   const filteredTransactions = useMemo(() => {
     if (!transactions) return []
@@ -81,13 +79,7 @@ export default function CategoriesPage() {
             }
           </p>
         </div>
-        <MonthYearFilter
-          transactions={transactions}
-          selectedMonths={selectedMonths}
-          selectedYears={selectedYears}
-          onMonthsChange={setSelectedMonths}
-          onYearsChange={setSelectedYears}
-        />
+        <MonthYearFilter transactions={transactions} />
       </div>
 
       {/* Summary Widgets */}

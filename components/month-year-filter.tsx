@@ -4,13 +4,10 @@ import { useMemo } from 'react'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Transaction } from '@/lib/types'
+import { useFilters } from '@/contexts/filter-context'
 
 interface MonthYearFilterProps {
   transactions: Transaction[]
-  selectedMonths: string[]
-  selectedYears: string[]
-  onMonthsChange: (months: string[]) => void
-  onYearsChange: (years: string[]) => void
   className?: string
 }
 
@@ -23,12 +20,11 @@ const MONTH_NAMES = [
 
 export function MonthYearFilter({
   transactions,
-  selectedMonths,
-  selectedYears,
-  onMonthsChange,
-  onYearsChange,
   className = '',
 }: MonthYearFilterProps) {
+  const { filters, setSelectedMonths, setSelectedYears } = useFilters()
+  const { selectedMonths, selectedYears } = filters
+
   const { availableYears, availableMonths } = useMemo(() => {
     const years = new Set<string>()
     const months = new Set<string>()
@@ -55,17 +51,17 @@ export function MonthYearFilter({
 
   const handleMonthChange = (value: string) => {
     if (value === ALL_VALUE) {
-      onMonthsChange([])
+      setSelectedMonths([])
     } else {
-      onMonthsChange([value])
+      setSelectedMonths([value])
     }
   }
 
   const handleYearChange = (value: string) => {
     if (value === ALL_VALUE) {
-      onYearsChange([])
+      setSelectedYears([])
     } else {
-      onYearsChange([value])
+      setSelectedYears([value])
     }
   }
 

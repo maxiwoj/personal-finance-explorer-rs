@@ -10,19 +10,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { TransactionsTable } from '@/components/transactions-table'
-import { MonthYearFilter, filterByMonthYear, getCurrentMonthYear } from '@/components/month-year-filter'
+import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
 import { getCategoryTotals } from '@/lib/analytics'
+import { useFilters } from '@/contexts/filter-context'
 import { AlertCircle, Search, X } from 'lucide-react'
 
 const ALL_VALUE = '__all__'
 
 export default function TransactionsPage() {
   const { data: transactions, isLoading, error } = useFullTransactions()
+  const { filters, resetFilters } = useFilters()
+  const { selectedMonths, selectedYears } = filters
   
-  // Default to current month
-  const currentMonthYear = getCurrentMonthYear()
-  const [selectedMonths, setSelectedMonths] = useState<string[]>([currentMonthYear.month])
-  const [selectedYears, setSelectedYears] = useState<string[]>([currentMonthYear.year])
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL_VALUE)
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -51,16 +50,18 @@ export default function TransactionsPage() {
     return filtered
   }, [transactions, selectedMonths, selectedYears, categoryFilter, searchQuery])
 
+  const currentMonth = String(new Date().getMonth() + 1)
+  const currentYear = String(new Date().getFullYear())
+
   const clearFilters = () => {
-    setSelectedMonths([currentMonthYear.month])
-    setSelectedYears([currentMonthYear.year])
+    resetFilters()
     setCategoryFilter(ALL_VALUE)
     setSearchQuery('')
   }
 
   const hasActiveFilters = categoryFilter !== ALL_VALUE || searchQuery !== '' ||
     selectedMonths.length !== 1 || selectedYears.length !== 1 ||
-    selectedMonths[0] !== currentMonthYear.month || selectedYears[0] !== currentMonthYear.year
+    selectedMonths[0] !== currentMonth || selectedYears[0] !== currentYear
 
   if (isLoading) {
     return (
@@ -119,13 +120,7 @@ export default function TransactionsPage() {
         <CardContent>
           <div className="space-y-4">
             {/* Month/Year Filter */}
-            <MonthYearFilter
-              transactions={transactions}
-              selectedMonths={selectedMonths}
-              selectedYears={selectedYears}
-              onMonthsChange={setSelectedMonths}
-              onYearsChange={setSelectedYears}
-            />
+            <MonthYearFilter transactions={transactions} />
             
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Search */}

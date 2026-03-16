@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState, useMemo } from 'react'
+import { use, useMemo } from 'react'
 import Link from 'next/link'
 import { useFullTransactions } from '@/hooks/use-transactions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,9 +10,10 @@ import { Spinner } from '@/components/ui/spinner'
 import { PieChart } from '@/components/charts/pie-chart'
 import { LineChart } from '@/components/charts/line-chart'
 import { TransactionsTable } from '@/components/transactions-table'
-import { MonthYearFilter, filterByMonthYear, getCurrentMonthYear } from '@/components/month-year-filter'
+import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
 import { filterTransactionsByCategory, getDescriptionTotals, getMonthlyTotals } from '@/lib/analytics'
 import { getCategoryColor } from '@/lib/colors'
+import { useFilters } from '@/contexts/filter-context'
 import { AlertCircle, ArrowLeft } from 'lucide-react'
 
 interface CategoryPageProps {
@@ -23,11 +24,8 @@ export default function CategoryPage({ params }: CategoryPageProps) {
   const { category: encodedCategory } = use(params)
   const category = decodeURIComponent(encodedCategory)
   const { data: transactions, isLoading, error } = useFullTransactions()
-  
-  // Default to current month
-  const currentMonthYear = getCurrentMonthYear()
-  const [selectedMonths, setSelectedMonths] = useState<string[]>([currentMonthYear.month])
-  const [selectedYears, setSelectedYears] = useState<string[]>([currentMonthYear.year])
+  const { filters } = useFilters()
+  const { selectedMonths, selectedYears } = filters
 
   // First filter by category, then by month/year
   const categoryTransactions = useMemo(() => {
@@ -135,13 +133,7 @@ export default function CategoryPage({ params }: CategoryPageProps) {
           </div>
         </div>
         
-        <MonthYearFilter
-          transactions={categoryTransactions}
-          selectedMonths={selectedMonths}
-          selectedYears={selectedYears}
-          onMonthsChange={setSelectedMonths}
-          onYearsChange={setSelectedYears}
-        />
+        <MonthYearFilter transactions={categoryTransactions} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

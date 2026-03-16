@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useRecentTransactions } from '@/hooks/use-transactions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,18 +9,16 @@ import { Spinner } from '@/components/ui/spinner'
 import { PieChart } from '@/components/charts/pie-chart'
 import { LineChart } from '@/components/charts/line-chart'
 import { TransactionsTable } from '@/components/transactions-table'
-import { MonthYearFilter, filterByMonthYear, getCurrentMonthYear } from '@/components/month-year-filter'
+import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
 import { getCategoryTotals, getCumulativeSpending } from '@/lib/analytics'
+import { useFilters } from '@/contexts/filter-context'
 import { AlertCircle, TrendingUp, Wallet } from 'lucide-react'
 
 export default function DashboardPage() {
   const { data: transactions, isLoading, error } = useRecentTransactions()
   const router = useRouter()
-  
-  // Default to current month
-  const currentMonthYear = getCurrentMonthYear()
-  const [selectedMonths, setSelectedMonths] = useState<string[]>([currentMonthYear.month])
-  const [selectedYears, setSelectedYears] = useState<string[]>([currentMonthYear.year])
+  const { filters } = useFilters()
+  const { selectedMonths, selectedYears } = filters
 
   const filteredTransactions = useMemo(() => {
     if (!transactions) return []
@@ -87,13 +85,7 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">Your spending overview</p>
         </div>
-        <MonthYearFilter
-          transactions={transactions}
-          selectedMonths={selectedMonths}
-          selectedYears={selectedYears}
-          onMonthsChange={setSelectedMonths}
-          onYearsChange={setSelectedYears}
-        />
+        <MonthYearFilter transactions={transactions} />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

@@ -2,14 +2,9 @@ import { SPREADSHEET_ID, SHEETS_API_BASE, SHEETS } from './config'
 import type { Transaction } from './types'
 
 function parseTimestamp(timestampStr: string): Date {
-  // Try parsing as ISO format first (e.g., 2024-03-15T10:30:00)
-  const isoDate = new Date(timestampStr)
-  if (!isNaN(isoDate.getTime())) {
-    return isoDate
-  }
-  
-  // Try DD/MM/YYYY HH:MM:SS format
-  const dateTimeMatch = timestampStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(\d{1,2})?:?(\d{2})?:?(\d{2})?/)
+  // Always try DD/MM/YYYY format first (European format)
+  // Match: DD/MM/YYYY or DD/MM/YYYY HH:MM:SS or DD/MM/YYYY HH:MM
+  const dateTimeMatch = timestampStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/)
   if (dateTimeMatch) {
     const [, day, month, year, hours = '0', minutes = '0', seconds = '0'] = dateTimeMatch
     return new Date(
@@ -22,9 +17,29 @@ function parseTimestamp(timestampStr: string): Date {
     )
   }
   
-  // Fallback: DD/MM/YYYY
-  const [day, month, year] = timestampStr.split('/').map(Number)
-  return new Date(year, month - 1, day)
+  // Try ISO format (e.g., 2024-03-15T10:30:00)
+  const isoMatch = timestampStr.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/)
+  if (isoMatch) {
+    const [, year, month, day, hours = '0', minutes = '0', seconds = '0'] = isoMatch
+    return new Date(
+      parseInt(year),
+      parseInt(month) - 1,
+      parseInt(day),
+      parseInt(hours),
+      parseInt(minutes),
+      parseInt(seconds)
+    )
+  }
+  
+  // Last resort fallback - try native parsing
+  const fallbackDate = new Date(timestampStr)
+  if (!isNaN(fallbackDate.getTime())) {
+    return fallbackDate
+  }
+  
+  // Return current date if nothing works
+  console.error('Failed to parse date:', timestampStr)
+  return new Date()
 }
 
 function parseRow(row: string[]): Transaction | null {
