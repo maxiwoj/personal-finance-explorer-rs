@@ -9,7 +9,16 @@ interface TransactionsTableProps {
   limit?: number
 }
 
+function formatDateOnly(date: Date): string {
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
+}
+
 export function TransactionsTable({ transactions, showCategory = true, limit }: TransactionsTableProps) {
+  // Sort by timestamp (newest first) - preserves time for accurate sorting
   const sorted = [...transactions].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
   const displayed = limit ? sorted.slice(0, limit) : sorted
 
@@ -27,10 +36,10 @@ export function TransactionsTable({ transactions, showCategory = true, limit }: 
           </tr>
         </thead>
         <tbody>
-          {displayed.map((t, i) => (
-            <tr key={`${t.timestamp.getTime()}-${t.what}-${i}`} className="border-b last:border-0">
+          {displayed.map((t) => (
+            <tr key={t.transactionId} className="border-b last:border-0">
               <td className="py-3 text-muted-foreground whitespace-nowrap">
-                {t.timestamp.toLocaleDateString('en-GB')}
+                {formatDateOnly(t.timestamp)}
               </td>
               <td className="py-3 max-w-[200px] truncate" title={t.what}>
                 {t.what}

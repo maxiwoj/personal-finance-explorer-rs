@@ -1,6 +1,6 @@
 'use client'
 
-import { use } from 'react'
+import { use, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useFullTransactions } from '@/hooks/use-transactions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,6 +10,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { PieChart } from '@/components/charts/pie-chart'
 import { LineChart } from '@/components/charts/line-chart'
 import { TransactionsTable } from '@/components/transactions-table'
+import { MonthYearFilter, filterByMonthYear, getCurrentMonthYear } from '@/components/month-year-filter'
 import { filterTransactionsByCategory, getDescriptionTotals, getMonthlyTotals } from '@/lib/analytics'
 import { getCategoryColor } from '@/lib/colors'
 import { AlertCircle, ArrowLeft } from 'lucide-react'
@@ -22,6 +23,21 @@ export default function CategoryPage({ params }: CategoryPageProps) {
   const { category: encodedCategory } = use(params)
   const category = decodeURIComponent(encodedCategory)
   const { data: transactions, isLoading, error } = useFullTransactions()
+  
+  // Default to current month
+  const currentMonthYear = getCurrentMonthYear()
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([currentMonthYear.month])
+  const [selectedYears, setSelectedYears] = useState<string[]>([currentMonthYear.year])
+
+  // First filter by category, then by month/year
+  const categoryTransactions = useMemo(() => {
+    if (!transactions) return []
+    return filterTransactionsByCategory(transactions, category)
+  }, [transactions, category])
+
+  const filteredTransactions = useMemo(() => {
+    return filterByMonthYear(categoryTransactions, selectedMonths, selectedYears)
+  }, [categoryTransactions, selectedMonths, selectedYears])
 
   if (isLoading) {
     return (
@@ -53,8 +69,6 @@ export default function CategoryPage({ params }: CategoryPageProps) {
     )
   }
 
-  const categoryTransactions = filterTransactionsByCategory(transactions, category)
-  
   if (categoryTransactions.length === 0) {
     return (
       <div className="space-y-6">
@@ -71,9 +85,9 @@ export default function CategoryPage({ params }: CategoryPageProps) {
     )
   }
 
-  const totalSpent = categoryTransactions.reduce((sum, t) => sum + t.amountPLN, 0)
-  const descriptionTotals = getDescriptionTotals(categoryTransactions)
-  const monthlyTotals = getMonthlyTotals(categoryTransactions)
+  const totalSpent = filteredTransactions.reduce((sum, t) => sum + t.amountPLN, 0)
+  const descriptionTotals = getDescriptionTotals(filteredTransactions)
+  const monthlyTotals = getMonthlyTotals(filteredTransactions)
   const categoryColor = getCategoryColor(category)
 
   // Pie chart data for top descriptions
@@ -96,25 +110,38 @@ export default function CategoryPage({ params }: CategoryPageProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <Link href="/categories">
-          <Button variant="ghost" size="sm" className="gap-2 w-fit">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-        </Link>
-        <div className="flex items-center gap-3">
-          <div 
-            className="w-4 h-4 rounded-full" 
-            style={{ backgroundColor: categoryColor }}
-          />
-          <div>
-            <h1 className="text-3xl font-bold capitalize">{category}</h1>
-            <p className="text-muted-foreground">
-              {totalSpent.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN total across {categoryTransactions.length} transactions
-            </p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <Link href="/categories">
+            <Button variant="ghost" size="sm" className="gap-2 w-fit">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          </Link>
+          <div className="flex items-center gap-3">
+            <div 
+              className="w-4 h-4 rounded-full" 
+              style={{ backgroundColor: categoryColor }}
+            />
+            <div>
+              <h1 className="text-3xl font-bold capitalize">{category}</h1>
+              <p className="text-muted-foreground">
+                {totalSpent > 0 
+                  ? `${totalSpent.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN across ${filteredTransactions.length} transactions`
+                  : 'No transactions in selected period'
+                }
+              </p>
+            </div>
           </div>
         </div>
+        
+        <MonthYearFilter
+          transactions={categoryTransactions}
+          selectedMonths={selectedMonths}
+          selectedYears={selectedYears}
+          onMonthsChange={setSelectedMonths}
+          onYearsChange={setSelectedYears}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -125,7 +152,13 @@ export default function CategoryPage({ params }: CategoryPageProps) {
             <CardDescription>Top items in this category</CardDescription>
           </CardHeader>
           <CardContent>
-            <PieChart data={pieData} height={350} />
+            {pieData.length > 0 ? (
+              <PieChart data={pieData} height={350} />
+            ) : (
+              <div className="flex items-center justify-center h-[350px] text-muted-foreground">
+                No transactions in selected period
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -136,11 +169,17 @@ export default function CategoryPage({ params }: CategoryPageProps) {
             <CardDescription>Spending over time in this category</CardDescription>
           </CardHeader>
           <CardContent>
-            <LineChart 
-              data={lineData} 
-              height={350} 
-              color={categoryColor}
-            />
+            {lineData.length > 0 ? (
+              <LineChart 
+                data={lineData} 
+                height={350} 
+                color={categoryColor}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-[350px] text-muted-foreground">
+                No transactions in selected period
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -149,10 +188,10 @@ export default function CategoryPage({ params }: CategoryPageProps) {
       <Card>
         <CardHeader>
           <CardTitle>All Transactions</CardTitle>
-          <CardDescription>{categoryTransactions.length} transactions in this category</CardDescription>
+          <CardDescription>{filteredTransactions.length} transactions in selected period</CardDescription>
         </CardHeader>
         <CardContent>
-          <TransactionsTable transactions={categoryTransactions} showCategory={false} />
+          <TransactionsTable transactions={filteredTransactions} showCategory={false} />
         </CardContent>
       </Card>
     </div>

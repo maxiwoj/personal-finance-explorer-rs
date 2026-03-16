@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useFullTransactions } from '@/hooks/use-transactions'
@@ -7,12 +8,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Spinner } from '@/components/ui/spinner'
 import { PieChart } from '@/components/charts/pie-chart'
+import { MonthYearFilter, filterByMonthYear, getCurrentMonthYear } from '@/components/month-year-filter'
 import { getCategoryTotals, filterTransactionsByCategory, getDescriptionTotals } from '@/lib/analytics'
 import { AlertCircle } from 'lucide-react'
 
 export default function CategoriesPage() {
   const { data: transactions, isLoading, error } = useFullTransactions()
   const router = useRouter()
+  
+  // Default to current month
+  const currentMonthYear = getCurrentMonthYear()
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([currentMonthYear.month])
+  const [selectedYears, setSelectedYears] = useState<string[]>([currentMonthYear.year])
+
+  const filteredTransactions = useMemo(() => {
+    if (!transactions) return []
+    return filterByMonthYear(transactions, selectedMonths, selectedYears)
+  }, [transactions, selectedMonths, selectedYears])
 
   if (isLoading) {
     return (
@@ -44,7 +56,7 @@ export default function CategoriesPage() {
     )
   }
 
-  const categoryTotals = getCategoryTotals(transactions)
+  const categoryTotals = getCategoryTotals(filteredTransactions)
   const totalSpending = categoryTotals.reduce((sum, c) => sum + c.total, 0)
 
   const pieData = categoryTotals.map(c => ({
@@ -59,11 +71,23 @@ export default function CategoriesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Categories</h1>
-        <p className="text-muted-foreground">
-          Breakdown of {totalSpending.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN across {categoryTotals.length} categories
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Categories</h1>
+          <p className="text-muted-foreground">
+            {totalSpending > 0 
+              ? `${totalSpending.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN across ${categoryTotals.length} categories`
+              : 'No spending in selected period'
+            }
+          </p>
+        </div>
+        <MonthYearFilter
+          transactions={transactions}
+          selectedMonths={selectedMonths}
+          selectedYears={selectedYears}
+          onMonthsChange={setSelectedMonths}
+          onYearsChange={setSelectedYears}
+        />
       </div>
 
       {/* Main Pie Chart */}
@@ -73,58 +97,66 @@ export default function CategoriesPage() {
           <CardDescription>Click a slice to explore category details</CardDescription>
         </CardHeader>
         <CardContent>
-          <PieChart data={pieData} onSliceClick={handleCategoryClick} height={400} />
+          {pieData.length > 0 ? (
+            <PieChart data={pieData} onSliceClick={handleCategoryClick} height={400} />
+          ) : (
+            <div className="flex items-center justify-center h-[400px] text-muted-foreground">
+              No transactions in selected period
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Category Cards Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {categoryTotals.map(category => {
-          const categoryTransactions = filterTransactionsByCategory(transactions, category.category)
-          const topExpenses = getDescriptionTotals(categoryTransactions).slice(0, 3)
-          const percentage = ((category.total / totalSpending) * 100).toFixed(1)
+      {categoryTotals.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {categoryTotals.map(category => {
+            const categoryTransactions = filterTransactionsByCategory(filteredTransactions, category.category)
+            const topExpenses = getDescriptionTotals(categoryTransactions).slice(0, 3)
+            const percentage = ((category.total / totalSpending) * 100).toFixed(1)
 
-          return (
-            <Link 
-              key={category.category} 
-              href={`/category/${encodeURIComponent(category.category)}`}
-            >
-              <Card className="h-full hover:bg-accent/50 transition-colors cursor-pointer">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: category.color }}
-                      />
-                      <CardTitle className="text-lg capitalize">{category.category}</CardTitle>
+            return (
+              <Link 
+                key={category.category} 
+                href={`/category/${encodeURIComponent(category.category)}`}
+              >
+                <Card className="h-full hover:bg-accent/50 transition-colors cursor-pointer">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: category.color }}
+                        />
+                        <CardTitle className="text-lg capitalize">{category.category}</CardTitle>
+                      </div>
+                      <span className="text-sm text-muted-foreground">{percentage}%</span>
                     </div>
-                    <span className="text-sm text-muted-foreground">{percentage}%</span>
-                  </div>
-                  <CardDescription className="text-xl font-bold text-foreground">
-                    {category.total.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {topExpenses.length > 0 && (
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground font-medium">Top expenses:</p>
-                      <ul className="text-sm space-y-0.5">
-                        {topExpenses.map((expense, i) => (
-                          <li key={i} className="flex justify-between text-muted-foreground">
-                            <span className="truncate max-w-[60%]">{expense.what}</span>
-                            <span>{expense.total.toLocaleString('pl-PL')} PLN</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </Link>
-          )
-        })}
-      </div>
+                    <CardDescription className="text-xl font-bold text-foreground">
+                      {category.total.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {topExpenses.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground font-medium">Top expenses:</p>
+                        <ul className="text-sm space-y-0.5">
+                          {topExpenses.map((expense, i) => (
+                            <li key={i} className="flex justify-between text-muted-foreground">
+                              <span className="truncate max-w-[60%]">{expense.what}</span>
+                              <span>{expense.total.toLocaleString('pl-PL')} PLN</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </Link>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
