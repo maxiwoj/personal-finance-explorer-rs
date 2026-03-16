@@ -1,0 +1,130 @@
+'use client'
+
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useFullTransactions } from '@/hooks/use-transactions'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Spinner } from '@/components/ui/spinner'
+import { PieChart } from '@/components/charts/pie-chart'
+import { getCategoryTotals, filterTransactionsByCategory, getDescriptionTotals } from '@/lib/analytics'
+import { AlertCircle } from 'lucide-react'
+
+export default function CategoriesPage() {
+  const { data: transactions, isLoading, error } = useFullTransactions()
+  const router = useRouter()
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center space-y-4">
+          <Spinner className="h-8 w-8 mx-auto" />
+          <p className="text-muted-foreground">Loading full transaction history...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive" className="max-w-lg mx-auto mt-10">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          {error instanceof Error ? error.message : 'Failed to load transactions. Please try again.'}
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
+  if (!transactions || transactions.length === 0) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-muted-foreground">No transactions found in your spreadsheet.</p>
+      </div>
+    )
+  }
+
+  const categoryTotals = getCategoryTotals(transactions)
+  const totalSpending = categoryTotals.reduce((sum, c) => sum + c.total, 0)
+
+  const pieData = categoryTotals.map(c => ({
+    name: c.category,
+    value: c.total,
+    color: c.color,
+  }))
+
+  const handleCategoryClick = (category: string) => {
+    router.push(`/category/${encodeURIComponent(category)}`)
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Categories</h1>
+        <p className="text-muted-foreground">
+          Breakdown of {totalSpending.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN across {categoryTotals.length} categories
+        </p>
+      </div>
+
+      {/* Main Pie Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Spending Distribution</CardTitle>
+          <CardDescription>Click a slice to explore category details</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PieChart data={pieData} onSliceClick={handleCategoryClick} height={400} />
+        </CardContent>
+      </Card>
+
+      {/* Category Cards Grid */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {categoryTotals.map(category => {
+          const categoryTransactions = filterTransactionsByCategory(transactions, category.category)
+          const topExpenses = getDescriptionTotals(categoryTransactions).slice(0, 3)
+          const percentage = ((category.total / totalSpending) * 100).toFixed(1)
+
+          return (
+            <Link 
+              key={category.category} 
+              href={`/category/${encodeURIComponent(category.category)}`}
+            >
+              <Card className="h-full hover:bg-accent/50 transition-colors cursor-pointer">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: category.color }}
+                      />
+                      <CardTitle className="text-lg capitalize">{category.category}</CardTitle>
+                    </div>
+                    <span className="text-sm text-muted-foreground">{percentage}%</span>
+                  </div>
+                  <CardDescription className="text-xl font-bold text-foreground">
+                    {category.total.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {topExpenses.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-medium">Top expenses:</p>
+                      <ul className="text-sm space-y-0.5">
+                        {topExpenses.map((expense, i) => (
+                          <li key={i} className="flex justify-between text-muted-foreground">
+                            <span className="truncate max-w-[60%]">{expense.what}</span>
+                            <span>{expense.total.toLocaleString('pl-PL')} PLN</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </Link>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
