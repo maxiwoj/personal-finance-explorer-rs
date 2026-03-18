@@ -27,15 +27,15 @@ function getReloadConfig(pathname: string, mode: 'google' | 'demo'): { scope: Fi
   if (pathname === '/dashboard') {
     return {
       scope: 'recent',
-      idleLabel: 'Reload dashboard data',
-      loadingLabel: 'Reloading dashboard data...',
+      idleLabel: 'Refresh recent data',
+      loadingLabel: 'Refreshing recent data...',
     }
   }
 
   return {
     scope: 'full',
-    idleLabel: 'Reload analytics data',
-    loadingLabel: 'Reloading analytics data...',
+    idleLabel: 'Reload all data',
+    loadingLabel: 'Reloading all data...',
   }
 }
 
