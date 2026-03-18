@@ -1,11 +1,11 @@
-"use client";
+'use client'
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AuthProvider } from "@/contexts/auth-context";
-import { FinanceDataProvider } from "@/contexts/data-provider-context";
-import { FilterProvider } from "@/contexts/filter-context";
-import { useState, type ReactNode } from "react";
-import { ThemeProvider } from "@/components/theme-provider";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { AuthProvider } from '@/contexts/auth-context'
+import { FinanceDataProvider } from '@/contexts/data-provider-context'
+import { FilterProvider } from '@/contexts/filter-context'
+import { useState, type ReactNode } from 'react'
+import { ThemeProvider } from '@/components/theme-provider'
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -17,16 +17,11 @@ export function Providers({ children }: { children: ReactNode }) {
             retry: 1,
           },
         },
-      }),
-  );
+      })
+  )
 
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-    >
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <FinanceDataProvider>
@@ -35,5 +30,5 @@ export function Providers({ children }: { children: ReactNode }) {
         </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>
-  );
+  )
 }
