@@ -120,6 +120,7 @@ export default function DashboardPage() {
   const { filters, setSelectedCategories, setSelectedDateRange } = useFilters()
   const { selectedMonths, selectedYears, selectedCategories, selectedDateRange } = filters
   const [showPreviousMonth, setShowPreviousMonth] = useState(false)
+  const [limitComparisonToCurrentProgress, setLimitComparisonToCurrentProgress] = useState(false)
   const [showTransactionTimes, setShowTransactionTimes] = useState(false)
 
   const filteredTransactions = useMemo(() => {
@@ -155,9 +156,13 @@ export default function DashboardPage() {
 
   const lineChartConfig = useMemo(() => {
     const currentSeries = getCumulativeSpending(filteredTransactions, granularity)
-    const previousSeries = showPreviousMonth
+    const currentSeriesEndTimestamp = currentSeries.at(-1)?.timestamp
+    const shiftedPreviousSeries = showPreviousMonth
       ? shiftComparisonPoints(getCumulativeSpending(previousMonthTransactions, granularity), granularity)
       : []
+    const previousSeries = limitComparisonToCurrentProgress && currentSeriesEndTimestamp !== undefined
+      ? shiftedPreviousSeries.filter(point => point.timestamp <= currentSeriesEndTimestamp)
+      : shiftedPreviousSeries
     const currentPeriodLabel = selectedDateRange
       ? 'Selected period'
       : selectedMonths.length === 1 && selectedYears.length === 1
@@ -189,7 +194,7 @@ export default function DashboardPage() {
       ],
       description: `Running spend for ${currentPeriodLabel.toLowerCase()}`,
     }
-  }, [filteredTransactions, granularity, previousMonthTransactions, selectedDateRange, selectedMonths, selectedYears, showPreviousMonth])
+  }, [filteredTransactions, granularity, limitComparisonToCurrentProgress, previousMonthTransactions, selectedDateRange, selectedMonths, selectedYears, showPreviousMonth])
 
   if (isLoading) {
     return (
@@ -339,7 +344,7 @@ export default function DashboardPage() {
                 {lineChartConfig.description}. Use the brush tool to select a smaller time window.
               </CardDescription>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-3">
               <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
                 <div className="space-y-1">
                   <Label htmlFor="compare-previous-month">Previous month</Label>
@@ -348,8 +353,25 @@ export default function DashboardPage() {
                 <Switch
                   id="compare-previous-month"
                   checked={showPreviousMonth}
-                  onCheckedChange={setShowPreviousMonth}
+                  onCheckedChange={checked => {
+                    setShowPreviousMonth(checked)
+                    if (!checked) {
+                      setLimitComparisonToCurrentProgress(false)
+                    }
+                  }}
                   disabled={!canComparePreviousMonth}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+                <div className="space-y-1">
+                  <Label htmlFor="limit-comparison-progress">Trim comparison</Label>
+                  <p className="text-xs text-muted-foreground">Hide prior-month points after the current month stops.</p>
+                </div>
+                <Switch
+                  id="limit-comparison-progress"
+                  checked={limitComparisonToCurrentProgress}
+                  onCheckedChange={setLimitComparisonToCurrentProgress}
+                  disabled={!showPreviousMonth}
                 />
               </div>
               <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">

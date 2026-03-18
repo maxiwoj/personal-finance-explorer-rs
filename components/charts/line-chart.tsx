@@ -127,6 +127,7 @@ export function LineChart({
       emphasis: {
         focus: 'series',
       },
+      connectNulls: true,
       data: item.data,
       lineStyle: {
         color: item.color,
