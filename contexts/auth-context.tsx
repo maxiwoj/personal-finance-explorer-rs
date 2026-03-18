@@ -18,8 +18,8 @@ const REQUIRED_SCOPES = [
 
 export type AuthMode = 'google' | 'demo' | null
 
-interface GoogleTokenClient {
-  requestAccessToken: (options?: { prompt?: string; hint?: string }) => void
+interface GoogleCodeClient {
+  requestCode: () => void
 }
 
 interface AuthContextType {
@@ -43,11 +43,13 @@ declare global {
     google?: {
       accounts: {
         oauth2: {
-          initTokenClient: (config: {
+          initCodeClient: (config: {
             client_id: string
             scope: string
-            callback: (response: { access_token?: string; error?: string; expires_in?: number }) => void
-          }) => GoogleTokenClient
+            ux_mode?: 'popup' | 'redirect'
+            redirect_uri?: string
+            callback: (response: { code?: string; error?: string }) => void
+          }) => GoogleCodeClient
           revoke: (token: string, callback: () => void) => void
         }
       }
@@ -67,8 +69,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [expiryTime, setExpiryTime] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [tokenClient, setTokenClient] = useState<GoogleTokenClient | null>(null)
+  const [codeClient, setCodeClient] = useState<GoogleCodeClient | null>(null)
   const [isExpiring, setIsExpiring] = useState(false)
+
+  const handleAuthResponse = useCallback(async (data: { access_token: string, expiry_date: number }) => {
+    setMode('google')
+    setAccessToken(data.access_token)
+    setExpiryTime(data.expiry_date)
+
+    localStorage.setItem(MODE_KEY, 'google')
+    localStorage.setItem(STORAGE_KEY, data.access_token)
+    localStorage.setItem(EXPIRY_KEY, data.expiry_date.toString())
+
+    try {
+      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${data.access_token}` },
+      })
+
+      if (userInfoResponse.ok) {
+        const userInfo = await userInfoResponse.json()
+        if (userInfo.email) {
+          localStorage.setItem(HINT_KEY, userInfo.email)
+        }
+      }
+    } catch (fetchError) {
+      console.error('Failed to fetch user hint:', fetchError)
+    }
+    setError(null)
+  }, [])
+
+  const refreshSession = useCallback(async () => {
+    try {
+      const response = await fetch('/api/auth/refresh', { method: 'POST' })
+      if (response.ok) {
+        const data = await response.json()
+        await handleAuthResponse(data)
+        return true
+      } else {
+        // If refresh fails, clear everything
+        clearGoogleSession()
+        setAccessToken(null)
+        setExpiryTime(null)
+        setMode(null)
+        localStorage.removeItem(MODE_KEY)
+        return false
+      }
+    } catch (e) {
+      console.error('Refresh error:', e)
+      return false
+    }
+  }, [handleAuthResponse])
 
   useEffect(() => {
     if (!expiryTime || mode !== 'google') return
@@ -78,65 +128,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsExpiring(remaining > 0 && remaining < 600000)
 
       if (remaining <= 0 && accessToken) {
-        setAccessToken(null)
-        setMode(null)
-        localStorage.removeItem(MODE_KEY)
-        clearGoogleSession()
+        // Try to refresh automatically
+        void refreshSession()
       }
     }
 
     checkExpiry()
     const interval = setInterval(checkExpiry, 30000)
     return () => clearInterval(interval)
-  }, [expiryTime, accessToken, mode])
+  }, [expiryTime, accessToken, mode, refreshSession])
 
   useEffect(() => {
     const onFocus = () => {
       if (mode === 'google' && expiryTime && expiryTime <= Date.now() && accessToken) {
-        setAccessToken(null)
-        setMode(null)
-        localStorage.removeItem(MODE_KEY)
-        clearGoogleSession()
+        void refreshSession()
       }
     }
 
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
-  }, [expiryTime, accessToken, mode])
+  }, [expiryTime, accessToken, mode, refreshSession])
 
   useEffect(() => {
-    const storedMode = localStorage.getItem(MODE_KEY) as AuthMode
-    const storedToken = localStorage.getItem(STORAGE_KEY)
-    const storedExpiry = localStorage.getItem(EXPIRY_KEY)
-    const storedHint = localStorage.getItem(HINT_KEY)
+    const init = async () => {
+      const storedMode = localStorage.getItem(MODE_KEY) as AuthMode
+      const storedToken = localStorage.getItem(STORAGE_KEY)
+      const storedExpiry = localStorage.getItem(EXPIRY_KEY)
 
-    if (storedMode === 'demo') {
-      setMode('demo')
-      setIsLoading(false)
-      return
-    }
-
-    if (storedMode === 'google' && storedToken && storedExpiry) {
-      if (!storedHint) {
-        clearGoogleSession()
-        localStorage.removeItem(MODE_KEY)
+      if (storedMode === 'demo') {
+        setMode('demo')
         setIsLoading(false)
         return
       }
 
-      const expiry = parseInt(storedExpiry, 10)
-      if (Date.now() < expiry - 60000) {
-        setMode('google')
-        setAccessToken(storedToken)
-        setExpiryTime(expiry)
+      if (storedMode === 'google') {
+        // Check if current token is still valid
+        if (storedToken && storedExpiry && Date.now() < parseInt(storedExpiry, 10) - 60000) {
+          setMode('google')
+          setAccessToken(storedToken)
+          setExpiryTime(parseInt(storedExpiry, 10))
+          setIsLoading(false)
+        } else {
+          // Try to refresh
+          const success = await refreshSession()
+          if (!success) {
+            clearGoogleSession()
+            localStorage.removeItem(MODE_KEY)
+          }
+          setIsLoading(false)
+        }
       } else {
-        clearGoogleSession()
-        localStorage.removeItem(MODE_KEY)
+        setIsLoading(false)
       }
     }
-
-    setIsLoading(false)
-  }, [])
+    void init()
+  }, [refreshSession])
 
   useEffect(() => {
     const script = document.createElement('script')
@@ -145,59 +191,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     script.defer = true
     script.onload = () => {
       if (window.google && GOOGLE_CLIENT_ID) {
-        const client = window.google.accounts.oauth2.initTokenClient({
+        const client = window.google.accounts.oauth2.initCodeClient({
           client_id: GOOGLE_CLIENT_ID,
           scope: REQUIRED_SCOPES,
+          ux_mode: 'popup',
+          // @ts-ignore - access_type is supported but might be missing in some type definitions
+          access_type: 'offline',
           callback: async (response) => {
             if (response.error) {
-              if (response.error === 'immediate_failed' || response.error === 'interaction_required') {
-                clearGoogleSession()
-                setAccessToken(null)
-                setExpiryTime(null)
-                setMode(null)
-                localStorage.removeItem(MODE_KEY)
-              } else {
-                setError(response.error === 'access_denied' ? 'Access denied. Please try again.' : response.error)
-              }
+              setError(response.error === 'access_denied' ? 'Access denied. Please try again.' : response.error)
               setIsLoading(false)
               return
             }
 
-            if (response.access_token) {
-              setMode('google')
-              setAccessToken(response.access_token)
-
-              const expiresIn = response.expires_in || 3600
-              const expiry = Date.now() + expiresIn * 1000
-              setExpiryTime(expiry)
-
-              localStorage.setItem(MODE_KEY, 'google')
-              localStorage.setItem(STORAGE_KEY, response.access_token)
-              localStorage.setItem(EXPIRY_KEY, expiry.toString())
-
+            if (response.code) {
+              setIsLoading(true)
               try {
-                const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                  headers: { Authorization: `Bearer ${response.access_token}` },
+                const loginResponse = await fetch('/api/auth/login', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ code: response.code }),
                 })
 
-                if (userInfoResponse.ok) {
-                  const userInfo = await userInfoResponse.json()
-                  if (userInfo.email) {
-                    localStorage.setItem(HINT_KEY, userInfo.email)
-                  }
+                if (loginResponse.ok) {
+                  const data = await loginResponse.json()
+                  await handleAuthResponse(data)
+                } else {
+                  const err = await loginResponse.json()
+                  setError(err.error || 'Login failed')
                 }
-              } catch (fetchError) {
-                console.error('Failed to fetch user hint:', fetchError)
+              } catch (e) {
+                console.error('Login error:', e)
+                setError('Failed to connect to authentication server')
               }
-
-              setError(null)
+              setIsLoading(false)
             }
-            setIsLoading(false)
           },
         })
-        setTokenClient(client)
-      } else {
-        setIsLoading(false)
+        setCodeClient(client)
       }
     }
     script.onerror = () => {
@@ -212,22 +243,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         existingScript.remove()
       }
     }
-  }, [])
+  }, [handleAuthResponse])
 
   const signInWithGoogle = useCallback(() => {
-    if (!tokenClient) {
+    if (!codeClient) {
       setError('Authentication not ready. Please try again.')
       return
     }
 
     setError(null)
     try {
-      tokenClient.requestAccessToken({ prompt: 'consent' })
+      codeClient.requestCode()
     } catch (signInError) {
       console.error('Sign-in failed to trigger:', signInError)
       setError('Authentication failed to start. Please check if popups are blocked.')
     }
-  }, [tokenClient])
+  }, [codeClient])
 
   const enterDemoMode = useCallback(() => {
     clearGoogleSession()
@@ -240,24 +271,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(MODE_KEY, 'demo')
   }, [])
 
-  const refreshSession = useCallback(() => {
-    if (mode !== 'google' || !tokenClient) return
-
-    setError(null)
-    try {
-      const hint = localStorage.getItem(HINT_KEY) || undefined
-      tokenClient.requestAccessToken({ prompt: 'none', hint })
-    } catch (refreshError) {
-      console.error('Refresh failed to trigger:', refreshError)
-    }
-  }, [mode, tokenClient])
-
-  const signOut = useCallback(() => {
+  const signOut = useCallback(async () => {
     const activeMode = mode ?? (localStorage.getItem(MODE_KEY) as AuthMode)
     const currentToken = accessToken || localStorage.getItem(STORAGE_KEY)
 
     if (activeMode === 'demo') {
       clearStoredDemoTransactions()
+    }
+
+    if (activeMode === 'google') {
+      try {
+        await fetch('/api/auth/logout', { method: 'POST' })
+      } catch (e) {
+        console.error('Logout error:', e)
+      }
     }
 
     void clearCache()
