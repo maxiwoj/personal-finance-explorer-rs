@@ -60,25 +60,80 @@ export function getMonthlyTotals(transactions: Transaction[]): MonthlyTotal[] {
     })
 }
 
-export function getCumulativeSpending(transactions: Transaction[]): { date: string; total: number; timestamp: number }[] {
-  // Sort by timestamp ascending
+export type TimeSeriesGranularity = 'day' | 'transaction'
+
+export interface CumulativeSpendingPoint {
+  key: string
+  label: string
+  timestamp: number
+  total: number
+  transactionName?: string
+  transactionNames?: string[]
+}
+
+function roundCurrency(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
+function formatDayKey(date: Date): string {
+  return date.toISOString().split('T')[0]
+}
+
+function formatTransactionKey(date: Date, transactionId: string): string {
+  return `${date.toISOString()}__${transactionId}`
+}
+
+function formatDisplayLabel(date: Date, granularity: TimeSeriesGranularity): string {
+  if (granularity === 'transaction') {
+    return new Intl.DateTimeFormat('en-CA', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(date)
+  }
+
+  return formatDayKey(date)
+}
+
+export function getCumulativeSpending(
+  transactions: Transaction[],
+  granularity: TimeSeriesGranularity = 'day'
+): CumulativeSpendingPoint[] {
   const sorted = [...transactions].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
-  
-  // Aggregate by date to avoid duplicate x-axis labels
-  const dailyTotals = new Map<string, { date: string; total: number; timestamp: number }>()
-  
+
   let cumulative = 0
-  sorted.forEach(t => {
-    cumulative += t.amountPLN
-    const dateStr = t.timestamp.toISOString().split('T')[0]
-    dailyTotals.set(dateStr, {
-      date: dateStr,
-      total: Math.round(cumulative * 100) / 100,
-      timestamp: t.timestamp.getTime()
+
+  if (granularity === 'transaction') {
+    return sorted.map(transaction => {
+      cumulative += transaction.amountPLN
+      return {
+        key: formatTransactionKey(transaction.timestamp, transaction.transactionId),
+        label: formatDisplayLabel(transaction.timestamp, granularity),
+        timestamp: transaction.timestamp.getTime(),
+        total: roundCurrency(cumulative),
+        transactionName: transaction.what,
+        transactionNames: [transaction.what],
+      }
+    })
+  }
+
+  const dailyTotals = new Map<string, CumulativeSpendingPoint>()
+
+  sorted.forEach(transaction => {
+    cumulative += transaction.amountPLN
+    const key = formatDayKey(transaction.timestamp)
+    const existing = dailyTotals.get(key)
+    dailyTotals.set(key, {
+      key,
+      label: formatDisplayLabel(transaction.timestamp, granularity),
+      timestamp: transaction.timestamp.getTime(),
+      total: roundCurrency(cumulative),
+      transactionNames: [...(existing?.transactionNames || []), transaction.what],
     })
   })
-  
-  // Return sorted by timestamp
+
   return Array.from(dailyTotals.values()).sort((a, b) => a.timestamp - b.timestamp)
 }
 
