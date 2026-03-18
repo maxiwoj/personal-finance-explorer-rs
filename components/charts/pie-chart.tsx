@@ -16,6 +16,53 @@ export function PieChart({ data, onSliceClick, height = 300, showLegend = true }
       trigger: 'item',
       formatter: '{b}: {c} PLN ({d}%)',
     },
+    media: showLegend
+      ? [
+          {
+            query: { maxWidth: 640 },
+            option: {
+              legend: {
+                orient: 'horizontal',
+                left: 'center',
+                bottom: 0,
+                top: undefined,
+                type: 'scroll',
+                textStyle: {
+                  fontSize: 11,
+                },
+              },
+              series: [
+                {
+                  center: ['50%', '38%'],
+                  radius: ['34%', '62%'],
+                },
+              ],
+              grid: {
+                bottom: 84,
+              },
+            },
+          },
+          {
+            option: {
+              legend: {
+                orient: 'vertical',
+                right: 10,
+                top: 'center',
+                type: 'scroll',
+                textStyle: {
+                  fontSize: 11,
+                },
+              },
+              series: [
+                {
+                  center: ['35%', '50%'],
+                  radius: ['40%', '70%'],
+                },
+              ],
+            },
+          },
+        ]
+      : undefined,
     legend: showLegend ? {
       orient: 'vertical',
       right: 10,

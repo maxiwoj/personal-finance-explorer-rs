@@ -21,15 +21,14 @@ function formatDateOnly(date: Date): string {
 
 export function TransactionsTable({ transactions, showCategory = true, limit }: TransactionsTableProps) {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
-  
-  // Sort by timestamp (newest first) - preserves time for accurate sorting
+
   const sorted = [...transactions].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
   const displayed = limit ? sorted.slice(0, limit) : sorted
 
   return (
     <>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="overflow-hidden">
+        <table className="hidden w-full text-sm md:table">
           <thead>
             <tr className="border-b text-left">
               <th className="pb-3 font-medium text-muted-foreground">Date</th>
@@ -42,8 +41,8 @@ export function TransactionsTable({ transactions, showCategory = true, limit }: 
           </thead>
           <tbody>
             {displayed.map((t, index) => (
-              <tr 
-                key={`${t.transactionId}-${index}`} 
+              <tr
+                key={`${t.transactionId}-${index}`}
                 className="border-b last:border-0 hover:bg-muted/50 cursor-pointer transition-colors"
                 onClick={() => setSelectedTransaction(t)}
               >
@@ -70,12 +69,46 @@ export function TransactionsTable({ transactions, showCategory = true, limit }: 
             ))}
           </tbody>
         </table>
+
+        <div className="space-y-3 md:hidden">
+          {displayed.map((t, index) => (
+            <button
+              key={`${t.transactionId}-${index}`}
+              type="button"
+              className="w-full rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
+              onClick={() => setSelectedTransaction(t)}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {formatDateOnly(t.timestamp)}
+                  </div>
+                  <div className="break-words text-sm font-medium text-foreground">
+                    {t.what}
+                  </div>
+                  {showCategory && (
+                    <span
+                      className="inline-flex max-w-full rounded-full px-2 py-1 text-xs text-white"
+                      style={{ backgroundColor: getCategoryColor(t.category) }}
+                    >
+                      <span className="truncate">{t.category}</span>
+                    </span>
+                  )}
+                </div>
+                <div className="shrink-0 text-right text-sm font-semibold whitespace-nowrap">
+                  {t.amountPLN.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+
         {displayed.length === 0 && (
-          <p className="text-center py-8 text-muted-foreground">No transactions found</p>
+          <p className="py-8 text-center text-muted-foreground">No transactions found</p>
         )}
       </div>
-      
-      <TransactionDetailModal 
+
+      <TransactionDetailModal
         transaction={selectedTransaction}
         open={selectedTransaction !== null}
         onClose={() => setSelectedTransaction(null)}
