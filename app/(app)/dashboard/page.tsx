@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { endOfMonth, endOfDay, format, startOfDay, startOfMonth, subMonths } from 'date-fns'
+import { addMonths, endOfMonth, endOfDay, format, startOfDay, startOfMonth, subMonths } from 'date-fns'
 import { useRecentTransactions } from '@/hooks/use-transactions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -93,6 +93,28 @@ function sortLabelsChronologically(labels: string[]) {
   return [...labels].sort((a, b) => parseLabelToDate(a).getTime() - parseLabelToDate(b).getTime())
 }
 
+
+function formatChartLabel(date: Date, granularity: TimeSeriesGranularity) {
+  return granularity === 'transaction'
+    ? format(date, 'MMM d, HH:mm')
+    : format(date, 'yyyy-MM-dd')
+}
+
+function shiftComparisonPoints(
+  points: Array<{ label: string; total: number; timestamp: number; transactionName?: string }>,
+  granularity: TimeSeriesGranularity
+) {
+  return points.map(point => {
+    const shiftedDate = addMonths(new Date(point.timestamp), 1)
+
+    return {
+      ...point,
+      label: formatChartLabel(shiftedDate, granularity),
+      timestamp: shiftedDate.getTime(),
+    }
+  })
+}
+
 export default function DashboardPage() {
   const { data: transactions, isLoading, isFetching, error, refetch } = useRecentTransactions()
   const { filters, setSelectedCategories, setSelectedDateRange } = useFilters()
@@ -133,7 +155,9 @@ export default function DashboardPage() {
 
   const lineChartConfig = useMemo(() => {
     const currentSeries = getCumulativeSpending(filteredTransactions, granularity)
-    const previousSeries = showPreviousMonth ? getCumulativeSpending(previousMonthTransactions, granularity) : []
+    const previousSeries = showPreviousMonth
+      ? shiftComparisonPoints(getCumulativeSpending(previousMonthTransactions, granularity), granularity)
+      : []
     const currentPeriodLabel = selectedDateRange
       ? 'Selected period'
       : selectedMonths.length === 1 && selectedYears.length === 1
