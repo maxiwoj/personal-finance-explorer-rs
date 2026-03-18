@@ -1,0 +1,31 @@
+what,category,currency,minAmount,maxAmount
+Biedronka groceries,groceries,PLN,22,160
+Lidl weekly shopping,groceries,PLN,35,240
+Zabka quick stop,groceries,PLN,8,42
+Netflix subscription,entertainment,PLN,29,67
+Cinema evening,entertainment,PLN,25,90
+Spotify Premium,entertainment,PLN,19,25
+PKP Intercity ticket,transport,PLN,32,180
+Uber ride,transport,PLN,12,65
+Orlen fuel,transport,PLN,120,380
+Rent payment,housing,PLN,1800,2800
+Electricity bill,housing,PLN,120,420
+Internet bill,housing,PLN,55,110
+Pharmacy essentials,health,PLN,18,120
+Dentist visit,health,PLN,140,420
+Gym membership,health,PLN,89,169
+Coffee with friends,dining,PLN,14,36
+Lunch delivery,dining,PLN,24,68
+Restaurant dinner,dining,PLN,70,210
+New headphones,shopping,PLN,110,480
+Household supplies,shopping,PLN,26,160
+Bookstore purchase,shopping,PLN,22,95
+Weekend getaway,travel,PLN,260,980
+Hotel booking,travel,PLN,190,750
+Museum tickets,travel,PLN,25,120
+Online course,education,PLN,79,340
+Conference ticket,education,PLN,120,620
+Language lessons,education,PLN,60,220
+Charity donation,charity,PLN,20,150
+Pet supplies,pets,PLN,35,170
+Vet checkup,pets,PLN,120,360

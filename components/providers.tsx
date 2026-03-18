@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/contexts/auth-context'
+import { FinanceDataProvider } from '@/contexts/data-provider-context'
 import { FilterProvider } from '@/contexts/filter-context'
 import { useState, type ReactNode } from 'react'
 
@@ -21,7 +22,9 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <FilterProvider>{children}</FilterProvider>
+        <FinanceDataProvider>
+          <FilterProvider>{children}</FilterProvider>
+        </FinanceDataProvider>
       </AuthProvider>
     </QueryClientProvider>
   )
