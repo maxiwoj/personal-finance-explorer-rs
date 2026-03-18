@@ -1,7 +1,7 @@
 import type { Transaction } from './types'
 
 const DEMO_DATA_URL = '/demo/demo-transactions.csv'
-const DEMO_STORAGE_KEY = 'pfe_demo_transactions_v1'
+const DEMO_STORAGE_KEY = 'pfe_demo_transactions_v2'
 
 interface DemoSeedRow {
   what: string
@@ -10,6 +10,22 @@ interface DemoSeedRow {
   minAmount: number
   maxAmount: number
 }
+
+type DemoCurrency = 'PLN' | 'EUR' | 'USD' | 'JOINED ACCOUNT'
+
+const DEMO_CURRENCY_MULTIPLIERS: Record<DemoCurrency, number> = {
+  PLN: 1,
+  EUR: 4.3,
+  USD: 3.7,
+  'JOINED ACCOUNT': 0.5,
+}
+
+const DEMO_CURRENCY_WEIGHTS: Array<{ currency: DemoCurrency; weight: number }> = [
+  { currency: 'PLN', weight: 0.64 },
+  { currency: 'EUR', weight: 0.14 },
+  { currency: 'USD', weight: 0.14 },
+  { currency: 'JOINED ACCOUNT', weight: 0.08 },
+]
 
 function parseCsvLine(line: string): string[] {
   const result: string[] = []
@@ -77,6 +93,28 @@ function pickRandom<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)]
 }
 
+function pickRandomCurrency(defaultCurrency: string): DemoCurrency {
+  if (defaultCurrency.toUpperCase() !== 'PLN') {
+    return defaultCurrency as DemoCurrency
+  }
+
+  const threshold = Math.random()
+  let cumulativeWeight = 0
+
+  for (const option of DEMO_CURRENCY_WEIGHTS) {
+    cumulativeWeight += option.weight
+    if (threshold <= cumulativeWeight) {
+      return option.currency
+    }
+  }
+
+  return 'PLN'
+}
+
+function convertToPln(amountOriginal: number, currency: DemoCurrency) {
+  return Math.round(amountOriginal * DEMO_CURRENCY_MULTIPLIERS[currency] * 100) / 100
+}
+
 function createRandomDate(daysBack: number): Date {
   const now = new Date()
   const date = new Date(now)
@@ -93,14 +131,15 @@ function formatMonthYear(date: Date) {
 function createTransaction(seed: DemoSeedRow, index: number): Transaction {
   const timestamp = createRandomDate(240)
   const amountOriginal = createRandomNumber(seed.minAmount, seed.maxAmount)
+  const currency = pickRandomCurrency(seed.currency)
 
   return {
     timestamp,
     what: seed.what,
     category: seed.category.toLowerCase(),
     amountOriginal,
-    currency: seed.currency,
-    amountPLN: amountOriginal,
+    currency,
+    amountPLN: convertToPln(amountOriginal, currency),
     monthYear: formatMonthYear(timestamp),
     monthName: '',
     transactionId: `demo-${index}-${Math.random().toString(36).slice(2, 10)}`,
