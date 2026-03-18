@@ -20,17 +20,6 @@ import { useFilters } from '@/contexts/filter-context'
 import { AlertCircle, RefreshCw, TrendingUp, Wallet } from 'lucide-react'
 import type { Transaction } from '@/lib/types'
 
-function parseLabelToDate(label: string): Date {
-  const date = new Date(label)
-
-  if (!Number.isNaN(date.getTime())) {
-    return date
-  }
-
-  const fallback = new Date(`${label}T00:00:00`)
-  return Number.isNaN(fallback.getTime()) ? new Date() : fallback
-}
-
 function getComparisonWindow(selectedDateRange: { start: string; end: string } | null, selectedMonths: string[], selectedYears: string[]) {
   if (selectedDateRange) {
     const start = subMonths(startOfDay(new Date(selectedDateRange.start)), 1)
@@ -88,8 +77,18 @@ function buildAlignedSeriesData(
   })
 }
 
-function sortLabelsChronologically(labels: string[]) {
-  return [...labels].sort((a, b) => parseLabelToDate(a).getTime() - parseLabelToDate(b).getTime())
+function sortLabelsChronologically(labelEntries: Array<{ label: string; timestamp: number }>) {
+  const sortedEntries = [...labelEntries].sort((a, b) => a.timestamp - b.timestamp)
+  const seen = new Set<string>()
+
+  return sortedEntries.filter(entry => {
+    if (seen.has(entry.label)) {
+      return false
+    }
+
+    seen.add(entry.label)
+    return true
+  })
 }
 
 
@@ -167,13 +166,16 @@ export default function DashboardPage() {
       : selectedMonths.length === 1 && selectedYears.length === 1
         ? format(new Date(Number(selectedYears[0]), Number(selectedMonths[0]) - 1, 1), 'MMMM yyyy')
         : 'Current selection'
-    const labels = sortLabelsChronologically([
-      ...currentSeries.map(point => point.label),
-      ...previousSeries.map(point => point.label),
-    ].filter((label, index, allLabels) => allLabels.indexOf(label) === index))
+    const sortedLabels = sortLabelsChronologically([
+      ...currentSeries.map(point => ({ label: point.label, timestamp: point.timestamp })),
+      ...previousSeries.map(point => ({ label: point.label, timestamp: point.timestamp })),
+    ])
+    const labels = sortedLabels.map(entry => entry.label)
+    const labelTimestamps = Object.fromEntries(sortedLabels.map(entry => [entry.label, entry.timestamp]))
 
     return {
       labels,
+      labelTimestamps,
       series: [
         {
           name: currentPeriodLabel,
@@ -399,8 +401,15 @@ export default function DashboardPage() {
                 series={lineChartConfig.series}
                 height={350}
                 onBrushSelect={(start: string, end: string) => {
-                  const startDate = startOfDay(parseLabelToDate(start))
-                  const endDate = endOfDay(parseLabelToDate(end))
+                  const startTimestamp = lineChartConfig.labelTimestamps[start]
+                  const endTimestamp = lineChartConfig.labelTimestamps[end]
+
+                  if (startTimestamp === undefined || endTimestamp === undefined) {
+                    return
+                  }
+
+                  const startDate = startOfDay(new Date(startTimestamp))
+                  const endDate = endOfDay(new Date(endTimestamp))
 
                   setSelectedDateRange({
                     start: startDate.toISOString(),
