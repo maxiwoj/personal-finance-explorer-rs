@@ -115,33 +115,27 @@ export function LineChart({
   }
 
   const handleBrushSelected = (params: any) => {
-    console.log('LineChart: BRUSH EVENT!', params)
-    
     if (!onBrushSelect) return
     
     const area = params.batch?.[0]?.areas?.[0] || params.areas?.[0]
     
     if (!area || !area.coordRange || area.coordRange.length < 2) {
-      console.log('LineChart: No valid selection area')
       return
     }
     
     const [startIdx, endIdx] = area.coordRange
-    console.log(`LineChart: Indices ${startIdx} to ${endIdx}`)
     
     if (startIdx !== undefined && endIdx !== undefined) {
       const minIdx = Math.max(0, Math.min(Math.round(Math.min(startIdx, endIdx)), data.length - 1))
       const maxIdx = Math.max(0, Math.min(Math.round(Math.max(startIdx, endIdx)), data.length - 1))
       
       if (data[minIdx] && data[maxIdx]) {
-        console.log(`LineChart: Calling onBrushSelect with ${data[minIdx].label} to ${data[maxIdx].label}`)
         onBrushSelect(data[minIdx].label, data[maxIdx].label)
       }
     }
   }
 
   const onChartReady = (instance: any) => {
-    console.log('LineChart: Chart ready, binding events and activating brush')
     instance.on('brushSelected', handleBrushSelected)
     instance.on('brushselected', handleBrushSelected)
     
