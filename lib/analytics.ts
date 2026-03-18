@@ -68,6 +68,7 @@ export interface CumulativeSpendingPoint {
   timestamp: number
   total: number
   transactionName?: string
+  transactionNames?: string[]
 }
 
 function roundCurrency(value: number): number {
@@ -113,6 +114,7 @@ export function getCumulativeSpending(
         timestamp: transaction.timestamp.getTime(),
         total: roundCurrency(cumulative),
         transactionName: transaction.what,
+        transactionNames: [transaction.what],
       }
     })
   }
@@ -122,11 +124,13 @@ export function getCumulativeSpending(
   sorted.forEach(transaction => {
     cumulative += transaction.amountPLN
     const key = formatDayKey(transaction.timestamp)
+    const existing = dailyTotals.get(key)
     dailyTotals.set(key, {
       key,
       label: formatDisplayLabel(transaction.timestamp, granularity),
       timestamp: transaction.timestamp.getTime(),
       total: roundCurrency(cumulative),
+      transactionNames: [...(existing?.transactionNames || []), transaction.what],
     })
   })
 

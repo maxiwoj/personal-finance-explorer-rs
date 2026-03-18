@@ -67,8 +67,7 @@ function filterTransactionsByWindow(transactions: Transaction[], window: { start
 
 function buildAlignedSeriesData(
   labels: string[],
-  points: Array<{ label: string; total: number; transactionName?: string }>,
-  includeDetails: boolean
+  points: Array<{ label: string; total: number; transactionName?: string; transactionNames?: string[] }>
 ) {
   const byLabel = new Map(points.map(point => [point.label, point]))
 
@@ -78,10 +77,10 @@ function buildAlignedSeriesData(
       return null
     }
 
-    if (includeDetails) {
+    if (point.transactionNames?.length || point.transactionName) {
       return {
         value: point.total,
-        detail: point.transactionName,
+        detail: point.transactionNames?.join(' • ') || point.transactionName,
       }
     }
 
@@ -101,7 +100,7 @@ function formatChartLabel(date: Date, granularity: TimeSeriesGranularity) {
 }
 
 function shiftComparisonPoints(
-  points: Array<{ label: string; total: number; timestamp: number; transactionName?: string }>,
+  points: Array<{ label: string; total: number; timestamp: number; transactionName?: string; transactionNames?: string[] }>,
   granularity: TimeSeriesGranularity
 ) {
   return points.map(point => {
@@ -178,14 +177,14 @@ export default function DashboardPage() {
       series: [
         {
           name: currentPeriodLabel,
-          data: buildAlignedSeriesData(labels, currentSeries, granularity === 'transaction'),
+          data: buildAlignedSeriesData(labels, currentSeries),
           color: '#3b82f6',
           areaFill: true,
         },
         ...(showPreviousMonth && previousSeries.length > 0
           ? [{
               name: selectedDateRange ? 'Previous month window' : 'Previous month',
-              data: buildAlignedSeriesData(labels, previousSeries, granularity === 'transaction'),
+              data: buildAlignedSeriesData(labels, previousSeries),
               color: '#64748b',
               lineStyle: 'dashed' as const,
               opacity: 0.95,
