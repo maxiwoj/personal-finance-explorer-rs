@@ -172,10 +172,15 @@ export default function CategoryPage({ params }: CategoryPageProps) {
           </CardHeader>
           <CardContent>
             {lineData.length > 0 ? (
-              <LineChart 
-                data={lineData} 
-                height={350} 
-                color={categoryColor}
+              <LineChart
+                labels={lineData.map(point => point.label)}
+                series={[{
+                  name: category,
+                  data: lineData.map(point => point.value),
+                  color: categoryColor,
+                  areaFill: true,
+                }]}
+                height={350}
               />
             ) : (
               <div className="flex items-center justify-center h-[350px] text-muted-foreground">

@@ -1,42 +1,199 @@
 'use client'
 
-import { useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useMemo, useState } from 'react'
+import { addMonths, endOfMonth, endOfDay, format, startOfDay, startOfMonth, subMonths } from 'date-fns'
 import { useRecentTransactions } from '@/hooks/use-transactions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Spinner } from '@/components/ui/spinner'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { PieChart } from '@/components/charts/pie-chart'
 import { LineChart } from '@/components/charts/line-chart'
 import { TransactionsTable } from '@/components/transactions-table'
 import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
 import { CategoryFilter, filterByCategory } from '@/components/category-filter'
 import { DateRangeFilter, filterByDateRange } from '@/components/date-range-filter'
-import { getCategoryTotals, getCumulativeSpending } from '@/lib/analytics'
+import { getCategoryTotals, getCumulativeSpending, type TimeSeriesGranularity } from '@/lib/analytics'
 import { useFilters } from '@/contexts/filter-context'
 import { AlertCircle, RefreshCw, TrendingUp, Wallet } from 'lucide-react'
+import type { Transaction } from '@/lib/types'
+
+function parseLabelToDate(label: string): Date {
+  const date = new Date(label)
+
+  if (!Number.isNaN(date.getTime())) {
+    return date
+  }
+
+  const fallback = new Date(`${label}T00:00:00`)
+  return Number.isNaN(fallback.getTime()) ? new Date() : fallback
+}
+
+function getComparisonWindow(selectedDateRange: { start: string; end: string } | null, selectedMonths: string[], selectedYears: string[]) {
+  if (selectedDateRange) {
+    const start = subMonths(startOfDay(new Date(selectedDateRange.start)), 1)
+    const end = subMonths(endOfDay(new Date(selectedDateRange.end)), 1)
+    return { start, end }
+  }
+
+  if (selectedMonths.length === 1 && selectedYears.length === 1) {
+    const monthIndex = Number(selectedMonths[0]) - 1
+    const year = Number(selectedYears[0])
+
+    if (!Number.isNaN(monthIndex) && !Number.isNaN(year)) {
+      const selectedMonth = new Date(year, monthIndex, 1)
+      const previousMonth = subMonths(selectedMonth, 1)
+      return {
+        start: startOfMonth(previousMonth),
+        end: endOfMonth(previousMonth),
+      }
+    }
+  }
+
+  return null
+}
+
+function filterTransactionsByWindow(transactions: Transaction[], window: { start: Date; end: Date } | null) {
+  if (!window) return []
+
+  return transactions.filter(transaction => {
+    const timestamp = transaction.timestamp.getTime()
+    return timestamp >= window.start.getTime() && timestamp <= window.end.getTime()
+  })
+}
+
+
+function buildAlignedSeriesData(
+  labels: string[],
+  points: Array<{ label: string; total: number; transactionName?: string; transactionNames?: string[] }>
+) {
+  const byLabel = new Map(points.map(point => [point.label, point]))
+
+  return labels.map(label => {
+    const point = byLabel.get(label)
+    if (!point) {
+      return null
+    }
+
+    if (point.transactionNames?.length || point.transactionName) {
+      return {
+        value: point.total,
+        detail: point.transactionNames?.join(' • ') || point.transactionName,
+      }
+    }
+
+    return point.total
+  })
+}
+
+function sortLabelsChronologically(labels: string[]) {
+  return [...labels].sort((a, b) => parseLabelToDate(a).getTime() - parseLabelToDate(b).getTime())
+}
+
+
+function formatChartLabel(date: Date, granularity: TimeSeriesGranularity) {
+  return granularity === 'transaction'
+    ? format(date, 'MMM d, HH:mm')
+    : format(date, 'yyyy-MM-dd')
+}
+
+function shiftComparisonPoints(
+  points: Array<{ label: string; total: number; timestamp: number; transactionName?: string; transactionNames?: string[] }>,
+  granularity: TimeSeriesGranularity
+) {
+  return points.map(point => {
+    const shiftedDate = addMonths(new Date(point.timestamp), 1)
+
+    return {
+      ...point,
+      label: formatChartLabel(shiftedDate, granularity),
+      timestamp: shiftedDate.getTime(),
+    }
+  })
+}
 
 export default function DashboardPage() {
   const { data: transactions, isLoading, isFetching, error, refetch } = useRecentTransactions()
-  const router = useRouter()
   const { filters, setSelectedCategories, setSelectedDateRange } = useFilters()
   const { selectedMonths, selectedYears, selectedCategories, selectedDateRange } = filters
+  const [showPreviousMonth, setShowPreviousMonth] = useState(false)
+  const [limitComparisonToCurrentProgress, setLimitComparisonToCurrentProgress] = useState(false)
+  const [showTransactionTimes, setShowTransactionTimes] = useState(false)
 
   const filteredTransactions = useMemo(() => {
     if (!transactions) return []
-    
+
     let filtered = transactions
-    
+
     if (selectedDateRange) {
       filtered = filterByDateRange(filtered, selectedDateRange)
     } else {
       filtered = filterByMonthYear(filtered, selectedMonths, selectedYears)
     }
-    
+
     filtered = filterByCategory(filtered, selectedCategories)
     return filtered
   }, [transactions, selectedMonths, selectedYears, selectedCategories, selectedDateRange])
+
+  const comparisonWindow = useMemo(
+    () => getComparisonWindow(selectedDateRange, selectedMonths, selectedYears),
+    [selectedDateRange, selectedMonths, selectedYears]
+  )
+
+  const previousMonthTransactions = useMemo(() => {
+    if (!transactions || !comparisonWindow) return []
+
+    let filtered = filterTransactionsByWindow(transactions, comparisonWindow)
+    filtered = filterByCategory(filtered, selectedCategories)
+
+    return filtered
+  }, [transactions, comparisonWindow, selectedCategories])
+
+  const granularity: TimeSeriesGranularity = showTransactionTimes ? 'transaction' : 'day'
+
+  const lineChartConfig = useMemo(() => {
+    const currentSeries = getCumulativeSpending(filteredTransactions, granularity)
+    const currentSeriesEndTimestamp = currentSeries.at(-1)?.timestamp
+    const shiftedPreviousSeries = showPreviousMonth
+      ? shiftComparisonPoints(getCumulativeSpending(previousMonthTransactions, granularity), granularity)
+      : []
+    const previousSeries = limitComparisonToCurrentProgress && currentSeriesEndTimestamp !== undefined
+      ? shiftedPreviousSeries.filter(point => point.timestamp <= currentSeriesEndTimestamp)
+      : shiftedPreviousSeries
+    const currentPeriodLabel = selectedDateRange
+      ? 'Selected period'
+      : selectedMonths.length === 1 && selectedYears.length === 1
+        ? format(new Date(Number(selectedYears[0]), Number(selectedMonths[0]) - 1, 1), 'MMMM yyyy')
+        : 'Current selection'
+    const labels = sortLabelsChronologically([
+      ...currentSeries.map(point => point.label),
+      ...previousSeries.map(point => point.label),
+    ].filter((label, index, allLabels) => allLabels.indexOf(label) === index))
+
+    return {
+      labels,
+      series: [
+        {
+          name: currentPeriodLabel,
+          data: buildAlignedSeriesData(labels, currentSeries),
+          color: '#3b82f6',
+          areaFill: true,
+        },
+        ...(showPreviousMonth && previousSeries.length > 0
+          ? [{
+              name: selectedDateRange ? 'Previous month window' : 'Previous month',
+              data: buildAlignedSeriesData(labels, previousSeries),
+              color: '#64748b',
+              lineStyle: 'dashed' as const,
+              opacity: 0.95,
+            }]
+          : []),
+      ],
+      description: `Running spend for ${currentPeriodLabel.toLowerCase()}`,
+    }
+  }, [filteredTransactions, granularity, limitComparisonToCurrentProgress, previousMonthTransactions, selectedDateRange, selectedMonths, selectedYears, showPreviousMonth])
 
   if (isLoading) {
     return (
@@ -70,7 +227,6 @@ export default function DashboardPage() {
 
   const totalSpending = filteredTransactions.reduce((sum, t) => sum + t.amountPLN, 0)
   const categoryTotals = getCategoryTotals(filteredTransactions)
-  const cumulativeData = getCumulativeSpending(filteredTransactions)
 
   const pieData = categoryTotals.map(c => ({
     name: c.category,
@@ -78,20 +234,7 @@ export default function DashboardPage() {
     color: c.color,
   }))
 
-  const lineData = cumulativeData.map(d => ({
-    label: d.date,
-    value: d.total,
-  }))
-  
-  console.log('DASHBOARD: cumulativeData', cumulativeData)
-  console.log('DASHBOARD: lineData', lineData)
-
-  const handleCategoryClick = (category: string) => {
-    router.push(`/category/${encodeURIComponent(category)}`)
-  }
-
   const handlePieSliceClick = (categoryName: string) => {
-    // Toggle category filter when clicking pie slice
     if (selectedCategories.includes(categoryName)) {
       setSelectedCategories(selectedCategories.filter(c => c !== categoryName))
     } else {
@@ -104,6 +247,11 @@ export default function DashboardPage() {
     : selectedMonths.length === 0 && selectedYears.length === 0
       ? 'All time'
       : `${selectedMonths.length === 0 ? 'All months' : ''} ${selectedYears.length === 1 ? selectedYears[0] : ''}`
+
+  const canComparePreviousMonth = Boolean(comparisonWindow)
+  const chartHelpText = showTransactionTimes
+    ? 'Granular mode plots every transaction timestamp. Hovering a point also shows the transaction name when available.'
+    : 'Daily mode keeps one cumulative point per day for a cleaner monthly view.'
 
   return (
     <div className="space-y-6">
@@ -129,7 +277,6 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Total Spending Card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Spending</CardTitle>
@@ -145,7 +292,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Total Transactions Card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Transactions</CardTitle>
@@ -159,7 +305,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Categories Count Card */}
         <Card className="md:col-span-2 lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Categories</CardTitle>
@@ -174,7 +319,6 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Category Pie Chart */}
         <Card>
           <CardHeader>
             <CardTitle>Spending by Category</CardTitle>
@@ -191,22 +335,76 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Cumulative Spending Chart */}
         <Card>
-          <CardHeader>
-            <CardTitle>Cumulative Spending</CardTitle>
-            <CardDescription>Running total over time - use brush tool to select date range</CardDescription>
+          <CardHeader className="space-y-4">
+            <div>
+              <CardTitle>Cumulative Spending</CardTitle>
+              <CardDescription>
+                {lineChartConfig.description}. Use the brush tool to select a smaller time window.
+              </CardDescription>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+                <div className="space-y-1">
+                  <Label htmlFor="compare-previous-month">Previous month</Label>
+                  <p className="text-xs text-muted-foreground">Overlay the prior month as a dashed series.</p>
+                </div>
+                <Switch
+                  id="compare-previous-month"
+                  checked={showPreviousMonth}
+                  onCheckedChange={checked => {
+                    setShowPreviousMonth(checked)
+                    if (!checked) {
+                      setLimitComparisonToCurrentProgress(false)
+                    }
+                  }}
+                  disabled={!canComparePreviousMonth}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+                <div className="space-y-1">
+                  <Label htmlFor="limit-comparison-progress">Trim comparison</Label>
+                  <p className="text-xs text-muted-foreground">Hide prior-month points after the current month stops.</p>
+                </div>
+                <Switch
+                  id="limit-comparison-progress"
+                  checked={limitComparisonToCurrentProgress}
+                  onCheckedChange={setLimitComparisonToCurrentProgress}
+                  disabled={!showPreviousMonth}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+                <div className="space-y-1">
+                  <Label htmlFor="show-transaction-times">Transaction times</Label>
+                  <p className="text-xs text-muted-foreground">Plot each transaction instead of daily rollups.</p>
+                </div>
+                <Switch
+                  id="show-transaction-times"
+                  checked={showTransactionTimes}
+                  onCheckedChange={setShowTransactionTimes}
+                />
+              </div>
+            </div>
+            {!canComparePreviousMonth && (
+              <p className="text-xs text-muted-foreground">
+                Previous-month comparison is available when you select a single month/year or a custom date range.
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">{chartHelpText}</p>
           </CardHeader>
           <CardContent>
-            {lineData.length > 0 ? (
-              <LineChart 
-                data={lineData} 
+            {lineChartConfig.labels.length > 0 ? (
+              <LineChart
+                labels={lineChartConfig.labels}
+                series={lineChartConfig.series}
                 height={350}
                 onBrushSelect={(start: string, end: string) => {
-                  console.log('DASHBOARD: Received selection from chart:', start, 'to', end)
+                  const startDate = startOfDay(parseLabelToDate(start))
+                  const endDate = endOfDay(parseLabelToDate(end))
+
                   setSelectedDateRange({
-                    start: new Date(start).toISOString(),
-                    end: new Date(end).toISOString()
+                    start: startDate.toISOString(),
+                    end: endDate.toISOString(),
                   })
                 }}
               />
@@ -219,7 +417,6 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Recent Transactions */}
       <Card>
         <CardHeader>
           <CardTitle>Recent Transactions</CardTitle>
