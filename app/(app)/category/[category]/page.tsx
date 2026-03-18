@@ -11,6 +11,7 @@ import { PieChart } from '@/components/charts/pie-chart'
 import { LineChart } from '@/components/charts/line-chart'
 import { TransactionsTable } from '@/components/transactions-table'
 import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
+import { DateRangeFilter, filterByDateRange } from '@/components/date-range-filter'
 import { filterTransactionsByCategory, getDescriptionTotals, getMonthlyTotals } from '@/lib/analytics'
 import { getCategoryColor } from '@/lib/colors'
 import { useFilters } from '@/contexts/filter-context'
@@ -25,17 +26,23 @@ export default function CategoryPage({ params }: CategoryPageProps) {
   const category = decodeURIComponent(encodedCategory)
   const { data: transactions, isLoading, error } = useFullTransactions()
   const { filters } = useFilters()
-  const { selectedMonths, selectedYears } = filters
+  const { selectedMonths, selectedYears, selectedDateRange } = filters
 
-  // First filter by category, then by month/year
+  // First filter by category, then by month/year or date range
   const categoryTransactions = useMemo(() => {
     if (!transactions) return []
     return filterTransactionsByCategory(transactions, category)
   }, [transactions, category])
 
   const filteredTransactions = useMemo(() => {
-    return filterByMonthYear(categoryTransactions, selectedMonths, selectedYears)
-  }, [categoryTransactions, selectedMonths, selectedYears])
+    let filtered = categoryTransactions
+    if (selectedDateRange) {
+      filtered = filterByDateRange(filtered, selectedDateRange)
+    } else {
+      filtered = filterByMonthYear(filtered, selectedMonths, selectedYears)
+    }
+    return filtered
+  }, [categoryTransactions, selectedMonths, selectedYears, selectedDateRange])
 
   if (isLoading) {
     return (
@@ -133,7 +140,10 @@ export default function CategoryPage({ params }: CategoryPageProps) {
           </div>
         </div>
         
-        <MonthYearFilter transactions={categoryTransactions} />
+        <div className="flex flex-wrap items-center gap-4">
+          <DateRangeFilter />
+          <MonthYearFilter transactions={categoryTransactions} />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

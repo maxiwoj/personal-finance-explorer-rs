@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { TransactionsTable } from '@/components/transactions-table'
 import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
+import { DateRangeFilter, filterByDateRange } from '@/components/date-range-filter'
 import { getCategoryTotals } from '@/lib/analytics'
 import { useFilters } from '@/contexts/filter-context'
 import { AlertCircle, Search, X } from 'lucide-react'
@@ -20,7 +21,7 @@ const ALL_VALUE = '__all__'
 export default function TransactionsPage() {
   const { data: transactions, isLoading, error } = useFullTransactions()
   const { filters, resetFilters } = useFilters()
-  const { selectedMonths, selectedYears } = filters
+  const { selectedMonths, selectedYears, selectedDateRange } = filters
   
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL_VALUE)
   const [searchQuery, setSearchQuery] = useState('')
@@ -33,8 +34,17 @@ export default function TransactionsPage() {
   const filteredTransactions = useMemo(() => {
     if (!transactions) return []
     
-    // First filter by month/year
-    let filtered = filterByMonthYear(transactions, selectedMonths, selectedYears)
+    // First filter by month/year (only if date range is not set, or combining them? 
+    // Usually date range is more specific. Let's make them work together or prioritize date range if set.
+    // User requested "add filtering from-to". If set, it should probably override or narrow down.)
+    
+    let filtered = transactions
+
+    if (selectedDateRange) {
+      filtered = filterByDateRange(filtered, selectedDateRange)
+    } else {
+      filtered = filterByMonthYear(filtered, selectedMonths, selectedYears)
+    }
     
     // Then by category
     if (categoryFilter !== ALL_VALUE) {
@@ -48,7 +58,7 @@ export default function TransactionsPage() {
     }
     
     return filtered
-  }, [transactions, selectedMonths, selectedYears, categoryFilter, searchQuery])
+  }, [transactions, selectedMonths, selectedYears, selectedDateRange, categoryFilter, searchQuery])
 
   const currentMonth = String(new Date().getMonth() + 1)
   const currentYear = String(new Date().getFullYear())
@@ -60,6 +70,7 @@ export default function TransactionsPage() {
   }
 
   const hasActiveFilters = categoryFilter !== ALL_VALUE || searchQuery !== '' ||
+    selectedDateRange !== null ||
     selectedMonths.length !== 1 || selectedYears.length !== 1 ||
     selectedMonths[0] !== currentMonth || selectedYears[0] !== currentYear
 
@@ -119,8 +130,16 @@ export default function TransactionsPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {/* Month/Year Filter */}
-            <MonthYearFilter transactions={transactions} />
+            <div className="flex flex-wrap items-end gap-4">
+              {/* Month/Year Filter */}
+              <MonthYearFilter transactions={transactions} />
+              
+              {/* Date Range Filter */}
+              <div className="space-y-2">
+                <Label>Date range</Label>
+                <DateRangeFilter />
+              </div>
+            </div>
             
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Search */}

@@ -70,7 +70,7 @@ export function getCumulativeSpending(transactions: Transaction[]): { date: stri
   let cumulative = 0
   sorted.forEach(t => {
     cumulative += t.amountPLN
-    const dateStr = t.timestamp.toLocaleDateString('en-GB')
+    const dateStr = t.timestamp.toISOString().split('T')[0]
     dailyTotals.set(dateStr, {
       date: dateStr,
       total: Math.round(cumulative * 100) / 100,
