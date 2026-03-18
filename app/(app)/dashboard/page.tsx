@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useRecentTransactions } from '@/hooks/use-transactions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Spinner } from '@/components/ui/spinner'
 import { PieChart } from '@/components/charts/pie-chart'
@@ -13,10 +14,10 @@ import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filt
 import { CategoryFilter, filterByCategory } from '@/components/category-filter'
 import { getCategoryTotals, getCumulativeSpending } from '@/lib/analytics'
 import { useFilters } from '@/contexts/filter-context'
-import { AlertCircle, TrendingUp, Wallet } from 'lucide-react'
+import { AlertCircle, RefreshCw, TrendingUp, Wallet } from 'lucide-react'
 
 export default function DashboardPage() {
-  const { data: transactions, isLoading, error } = useRecentTransactions()
+  const { data: transactions, isLoading, isFetching, error, refetch } = useRecentTransactions()
   const router = useRouter()
   const { filters, setSelectedCategories } = useFilters()
   const { selectedMonths, selectedYears, selectedCategories } = filters
@@ -98,6 +99,15 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">Your spending overview</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            {isFetching ? 'Reloading...' : 'Reload data'}
+          </Button>
           <CategoryFilter transactions={transactions} />
           <MonthYearFilter transactions={transactions} />
         </div>
