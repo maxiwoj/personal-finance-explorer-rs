@@ -5,8 +5,9 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
-import { LayoutDashboard, PieChart, List, LogOut, Menu, X, RefreshCw, AlertTriangle } from 'lucide-react'
+import { LayoutDashboard, PieChart, List, LogOut, Menu, X, RefreshCw, AlertTriangle, FlaskConical } from 'lucide-react'
 import { useState } from 'react'
+import { useReloadFinanceData } from '@/hooks/use-transactions'
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -16,8 +17,19 @@ const navItems = [
 
 export function Nav() {
   const pathname = usePathname()
-  const { signOut, isExpiring, refreshSession } = useAuth()
+  const { signOut, isExpiring, refreshSession, mode } = useAuth()
+  const reloadFinanceData = useReloadFinanceData()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isReloading, setIsReloading] = useState(false)
+
+  const handleReload = async () => {
+    setIsReloading(true)
+    try {
+      await reloadFinanceData()
+    } finally {
+      setIsReloading(false)
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -25,21 +37,17 @@ export function Nav() {
         <div className="bg-amber-500 text-white px-4 py-1 text-xs font-medium flex items-center justify-center gap-2 animate-in fade-in slide-in-from-top-1">
           <AlertTriangle className="h-3 w-3" />
           <span>Session expiring soon</span>
-          <button 
-            onClick={refreshSession}
-            className="underline underline-offset-2 hover:text-amber-100 flex items-center gap-1"
-          >
+          <button onClick={refreshSession} className="underline underline-offset-2 hover:text-amber-100 flex items-center gap-1">
             <RefreshCw className="h-3 w-3" />
             Refresh
           </button>
         </div>
       )}
-      <div className="container px-4 md:px-6 lg:px-8 mx-auto max-w-7xl flex h-14 items-center">
+      <div className="container px-4 md:px-6 lg:px-8 mx-auto max-w-7xl flex h-14 items-center gap-2">
         <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
           <span className="font-bold text-lg">Finance Explorer</span>
         </Link>
-        
-        {/* Desktop Navigation */}
+
         <nav className="hidden md:flex flex-1 items-center space-x-1">
           {navItems.map((item) => {
             const Icon = item.icon
@@ -61,27 +69,28 @@ export function Nav() {
           })}
         </nav>
 
-        {/* Desktop Sign Out */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={signOut}
-          className="hidden md:flex items-center gap-2"
-        >
+        {mode === 'demo' && (
+          <div className="hidden md:flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs text-muted-foreground">
+            <FlaskConical className="h-3.5 w-3.5" />
+            Demo mode
+          </div>
+        )}
+
+        <Button variant="outline" size="sm" onClick={() => void handleReload()} disabled={isReloading} className="hidden md:flex items-center gap-2">
+          <RefreshCw className={cn('h-4 w-4', isReloading && 'animate-spin')} />
+          {mode === 'demo' ? 'Reload demo data' : 'Reload data'}
+        </Button>
+
+        <Button variant="ghost" size="sm" onClick={signOut} className="hidden md:flex items-center gap-2">
           <LogOut className="h-4 w-4" />
           Sign Out
         </Button>
 
-        {/* Mobile Menu Button */}
-        <button
-          className="ml-auto md:hidden p-2"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        >
+        <button className="ml-auto md:hidden p-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
           {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </div>
 
-      {/* Mobile Navigation */}
       {mobileMenuOpen && (
         <nav className="md:hidden border-t bg-background px-4 md:px-6 lg:px-8 mx-auto max-w-7xl py-4 space-y-2">
           {navItems.map((item) => {
@@ -103,6 +112,10 @@ export function Nav() {
               </Link>
             )
           })}
+          <Button variant="outline" size="sm" onClick={() => void handleReload()} disabled={isReloading} className="w-full justify-start gap-3 px-3">
+            <RefreshCw className={cn('h-4 w-4', isReloading && 'animate-spin')} />
+            {mode === 'demo' ? 'Reload demo data' : 'Reload data'}
+          </Button>
           <Button
             variant="ghost"
             size="sm"
