@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Transaction } from '@/lib/types'
 import { useFilters } from '@/contexts/filter-context'
@@ -66,41 +65,35 @@ export function MonthYearFilter({
   }
 
   return (
-    <div className={`flex flex-wrap gap-4 ${className}`}>
-      <div className="space-y-2 min-w-[140px]">
-        <Label htmlFor="year-filter">Year</Label>
-        <Select value={currentYearValue} onValueChange={handleYearChange}>
-          <SelectTrigger id="year-filter">
-            <SelectValue placeholder="All years" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_VALUE}>All years</SelectItem>
-            {availableYears.map(year => (
-              <SelectItem key={year} value={year}>
-                {year}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+    <>
+      <Select value={currentYearValue} onValueChange={handleYearChange}>
+        <SelectTrigger id="year-filter" className="w-[120px] h-9">
+          <SelectValue placeholder="Year" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL_VALUE}>All years</SelectItem>
+          {availableYears.map(year => (
+            <SelectItem key={year} value={year}>
+              {year}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      <div className="space-y-2 min-w-[160px]">
-        <Label htmlFor="month-filter">Month</Label>
-        <Select value={currentMonthValue} onValueChange={handleMonthChange}>
-          <SelectTrigger id="month-filter">
-            <SelectValue placeholder="All months" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_VALUE}>All months</SelectItem>
-            {availableMonths.map(month => (
-              <SelectItem key={month.value} value={month.value}>
-                {month.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
+      <Select value={currentMonthValue} onValueChange={handleMonthChange}>
+        <SelectTrigger id="month-filter" className="w-[140px] h-9">
+          <SelectValue placeholder="Month" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL_VALUE}>All months</SelectItem>
+          {availableMonths.map(month => (
+            <SelectItem key={month.value} value={month.value}>
+              {month.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </>
   )
 }
 
