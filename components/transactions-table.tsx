@@ -1,15 +1,32 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Transaction } from '@/lib/types'
 import { getCategoryColor } from '@/lib/colors'
 import { TransactionDetailModal } from './transaction-detail-modal'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 interface TransactionsTableProps {
   transactions: Transaction[]
   showCategory?: boolean
   limit?: number
 }
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const
 
 function formatDateOnly(date: Date): string {
   return date.toLocaleDateString('en-GB', {
@@ -19,92 +36,225 @@ function formatDateOnly(date: Date): string {
   })
 }
 
+function buildPageNumbers(currentPage: number, totalPages: number): number[] {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  if (currentPage <= 3) {
+    return [1, 2, 3, 4, 5]
+  }
+
+  if (currentPage >= totalPages - 2) {
+    return Array.from({ length: 5 }, (_, index) => totalPages - 4 + index)
+  }
+
+  return Array.from({ length: 5 }, (_, index) => currentPage - 2 + index)
+}
+
 export function TransactionsTable({ transactions, showCategory = true, limit }: TransactionsTableProps) {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(limit ?? 20)
 
-  const sorted = [...transactions].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-  const displayed = limit ? sorted.slice(0, limit) : sorted
+  const sorted = useMemo(
+    () => [...transactions].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()),
+    [transactions]
+  )
+
+  const availablePageSizes = useMemo(() => {
+    const sizes = new Set<number>(PAGE_SIZE_OPTIONS)
+
+    if (limit) {
+      sizes.add(limit)
+    }
+
+    if (sorted.length > 0) {
+      sizes.add(sorted.length)
+    }
+
+    return Array.from(sizes).sort((a, b) => a - b)
+  }, [limit, sorted.length])
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
+  const currentPageSafe = Math.min(currentPage, totalPages)
+  const startIndex = (currentPageSafe - 1) * pageSize
+  const displayed = sorted.slice(startIndex, startIndex + pageSize)
+  const pageNumbers = buildPageNumbers(currentPageSafe, totalPages)
+
+  useEffect(() => {
+    setPageSize(limit ?? 20)
+  }, [limit])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [transactions])
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
+
+  const fromCount = sorted.length === 0 ? 0 : startIndex + 1
+  const toCount = Math.min(startIndex + pageSize, sorted.length)
 
   return (
     <>
-      <div className="overflow-hidden">
-        <table className="hidden w-full text-sm md:table">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="pb-3 font-medium text-muted-foreground">Date</th>
-              <th className="pb-3 font-medium text-muted-foreground">Description</th>
-              {showCategory && (
-                <th className="pb-3 font-medium text-muted-foreground">Category</th>
-              )}
-              <th className="pb-3 font-medium text-muted-foreground text-right">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {displayed.map((t, index) => (
-              <tr
-                key={`${t.transactionId}-${index}`}
-                className="border-b last:border-0 hover:bg-muted/50 cursor-pointer transition-colors"
-                onClick={() => setSelectedTransaction(t)}
-              >
-                <td className="py-3 text-muted-foreground whitespace-nowrap">
-                  {formatDateOnly(t.timestamp)}
-                </td>
-                <td className="py-3 max-w-[200px] truncate" title={t.what}>
-                  {t.what}
-                </td>
-                {showCategory && (
-                  <td className="py-3">
-                    <span
-                      className="inline-block px-2 py-1 text-xs rounded-full text-white"
-                      style={{ backgroundColor: getCategoryColor(t.category) }}
-                    >
-                      {t.category}
-                    </span>
-                  </td>
-                )}
-                <td className="py-3 text-right font-medium whitespace-nowrap">
-                  {t.amountPLN.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div className="space-y-3 md:hidden">
-          {displayed.map((t, index) => (
-            <button
-              key={`${t.transactionId}-${index}`}
-              type="button"
-              className="w-full rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
-              onClick={() => setSelectedTransaction(t)}
+      <div className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            Showing {fromCount}-{toCount} of {sorted.length} transactions
+          </p>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <span className="text-sm text-muted-foreground">Rows per page</span>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(value) => {
+                setPageSize(Number(value))
+                setCurrentPage(1)
+              }}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1 space-y-2">
-                  <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    {formatDateOnly(t.timestamp)}
-                  </div>
-                  <div className="break-words text-sm font-medium text-foreground">
-                    {t.what}
-                  </div>
-                  {showCategory && (
-                    <span
-                      className="inline-flex max-w-full rounded-full px-2 py-1 text-xs text-white"
-                      style={{ backgroundColor: getCategoryColor(t.category) }}
-                    >
-                      <span className="truncate">{t.category}</span>
-                    </span>
-                  )}
-                </div>
-                <div className="shrink-0 text-right text-sm font-semibold whitespace-nowrap">
-                  {t.amountPLN.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN
-                </div>
-              </div>
-            </button>
-          ))}
+              <SelectTrigger className="w-[88px]" aria-label="Select rows per page">
+                <SelectValue placeholder="Rows" />
+              </SelectTrigger>
+              <SelectContent>
+                {availablePageSizes.map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        {displayed.length === 0 && (
-          <p className="py-8 text-center text-muted-foreground">No transactions found</p>
+        <div className="overflow-hidden">
+          <table className="hidden w-full text-sm md:table">
+            <thead>
+              <tr className="border-b text-left">
+                <th className="pb-3 font-medium text-muted-foreground">Date</th>
+                <th className="pb-3 font-medium text-muted-foreground">Description</th>
+                {showCategory && (
+                  <th className="pb-3 font-medium text-muted-foreground">Category</th>
+                )}
+                <th className="pb-3 font-medium text-muted-foreground text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayed.map((t, index) => (
+                <tr
+                  key={`${t.transactionId}-${startIndex + index}`}
+                  className="border-b last:border-0 hover:bg-muted/50 cursor-pointer transition-colors"
+                  onClick={() => setSelectedTransaction(t)}
+                >
+                  <td className="py-3 text-muted-foreground whitespace-nowrap">
+                    {formatDateOnly(t.timestamp)}
+                  </td>
+                  <td className="py-3 max-w-[200px] truncate" title={t.what}>
+                    {t.what}
+                  </td>
+                  {showCategory && (
+                    <td className="py-3">
+                      <span
+                        className="inline-block px-2 py-1 text-xs rounded-full text-white"
+                        style={{ backgroundColor: getCategoryColor(t.category) }}
+                      >
+                        {t.category}
+                      </span>
+                    </td>
+                  )}
+                  <td className="py-3 text-right font-medium whitespace-nowrap">
+                    {t.amountPLN.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="space-y-3 md:hidden">
+            {displayed.map((t, index) => (
+              <button
+                key={`${t.transactionId}-${startIndex + index}`}
+                type="button"
+                className="w-full rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
+                onClick={() => setSelectedTransaction(t)}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {formatDateOnly(t.timestamp)}
+                    </div>
+                    <div className="break-words text-sm font-medium text-foreground">
+                      {t.what}
+                    </div>
+                    {showCategory && (
+                      <span
+                        className="inline-flex max-w-full rounded-full px-2 py-1 text-xs text-white"
+                        style={{ backgroundColor: getCategoryColor(t.category) }}
+                      >
+                        <span className="truncate">{t.category}</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="shrink-0 text-right text-sm font-semibold whitespace-nowrap">
+                    {t.amountPLN.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {displayed.length === 0 && (
+            <p className="py-8 text-center text-muted-foreground">No transactions found</p>
+          )}
+        </div>
+
+        {sorted.length > 0 && (
+          <Pagination className="justify-end">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    if (currentPageSafe > 1) {
+                      setCurrentPage(currentPageSafe - 1)
+                    }
+                  }}
+                  aria-disabled={currentPageSafe === 1}
+                  className={currentPageSafe === 1 ? 'pointer-events-none opacity-50' : undefined}
+                />
+              </PaginationItem>
+              {pageNumbers.map((pageNumber) => (
+                <PaginationItem key={pageNumber}>
+                  <PaginationLink
+                    href="#"
+                    isActive={pageNumber === currentPageSafe}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      setCurrentPage(pageNumber)
+                    }}
+                  >
+                    {pageNumber}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    if (currentPageSafe < totalPages) {
+                      setCurrentPage(currentPageSafe + 1)
+                    }
+                  }}
+                  aria-disabled={currentPageSafe === totalPages}
+                  className={currentPageSafe === totalPages ? 'pointer-events-none opacity-50' : undefined}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         )}
       </div>
 
