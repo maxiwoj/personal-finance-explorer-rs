@@ -10,6 +10,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { PieChart } from '@/components/charts/pie-chart'
 import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
 import { CategoryFilter, filterByCategory } from '@/components/category-filter'
+import { DateRangeFilter, filterByDateRange } from '@/components/date-range-filter'
 import { getCategoryTotals, filterTransactionsByCategory, getDescriptionTotals } from '@/lib/analytics'
 import { useFilters } from '@/contexts/filter-context'
 import { AlertCircle, Wallet, TrendingUp, Tags } from 'lucide-react'
@@ -18,14 +19,21 @@ export default function CategoriesPage() {
   const { data: transactions, isLoading, error } = useFullTransactions()
   const router = useRouter()
   const { filters } = useFilters()
-  const { selectedMonths, selectedYears, selectedCategories } = filters
+  const { selectedMonths, selectedYears, selectedCategories, selectedDateRange } = filters
 
   const filteredTransactions = useMemo(() => {
     if (!transactions) return []
-    let filtered = filterByMonthYear(transactions, selectedMonths, selectedYears)
+    
+    let filtered = transactions
+    if (selectedDateRange) {
+      filtered = filterByDateRange(filtered, selectedDateRange)
+    } else {
+      filtered = filterByMonthYear(filtered, selectedMonths, selectedYears)
+    }
+    
     filtered = filterByCategory(filtered, selectedCategories)
     return filtered
-  }, [transactions, selectedMonths, selectedYears, selectedCategories])
+  }, [transactions, selectedMonths, selectedYears, selectedCategories, selectedDateRange])
 
   if (isLoading) {
     return (
@@ -84,6 +92,7 @@ export default function CategoriesPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <CategoryFilter transactions={transactions} />
+          <DateRangeFilter />
           <MonthYearFilter transactions={transactions} />
         </div>
       </div>

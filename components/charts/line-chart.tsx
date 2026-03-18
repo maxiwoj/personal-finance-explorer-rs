@@ -29,8 +29,13 @@ export function LineChart({
     tooltip: {
       trigger: 'axis',
       formatter: (params: unknown) => {
-        const item = (params as { name: string; value: number }[])[0]
-        return `${item.name}: ${item.value.toLocaleString('pl-PL')} ${yAxisLabel}`
+        const items = params as any[]
+        if (!items || items.length === 0) return ''
+        const item = items[0]
+        if (item.value === undefined || item.value === null) return `${item.name}: N/A`
+        const value = typeof item.value === 'number' ? item.value : parseFloat(String(item.value))
+        if (isNaN(value)) return `${item.name}: N/A`
+        return `${item.name}: ${value.toLocaleString('pl-PL')} ${yAxisLabel}`
       },
     },
     toolbox: onBrushSelect ? {
@@ -49,6 +54,8 @@ export function LineChart({
     brush: onBrushSelect ? {
       toolbox: ['lineX', 'clear'],
       xAxisIndex: 0,
+      throttleType: 'debounce',
+      throttleDelay: 300,
       brushStyle: {
         borderWidth: 1,
         color: 'rgba(59, 130, 246, 0.1)',
@@ -107,19 +114,40 @@ export function LineChart({
     ],
   }
 
-  const handleClick = (params: { name?: string }) => {
-    if (onDateClick && params.name) {
-      onDateClick(params.name)
+  const handleBrushSelected = (params: any) => {
+    if (!onBrushSelect) return
+    
+    const area = params.batch?.[0]?.areas?.[0] || params.areas?.[0]
+    
+    if (!area || !area.coordRange || area.coordRange.length < 2) {
+      return
+    }
+    
+    const [startIdx, endIdx] = area.coordRange
+    
+    if (startIdx !== undefined && endIdx !== undefined) {
+      const minIdx = Math.max(0, Math.min(Math.round(Math.min(startIdx, endIdx)), data.length - 1))
+      const maxIdx = Math.max(0, Math.min(Math.round(Math.max(startIdx, endIdx)), data.length - 1))
+      
+      if (data[minIdx] && data[maxIdx]) {
+        onBrushSelect(data[minIdx].label, data[maxIdx].label)
+      }
     }
   }
 
-  const handleBrushSelected = (params: { batch?: { areas?: { coordRange?: number[] }[] }[] }) => {
-    if (!onBrushSelect || !params.batch?.[0]?.areas?.[0]?.coordRange) return
+  const onChartReady = (instance: any) => {
+    instance.on('brushSelected', handleBrushSelected)
+    instance.on('brushselected', handleBrushSelected)
     
-    const [startIdx, endIdx] = params.batch[0].areas[0].coordRange
-    if (startIdx !== undefined && endIdx !== undefined && data[startIdx] && data[endIdx]) {
-      onBrushSelect(data[startIdx].label, data[endIdx].label)
-    }
+    // Automatically activate the lineX brush tool
+    instance.dispatchAction({
+      type: 'takeGlobalCursor',
+      key: 'brush',
+      brushOption: {
+        brushType: 'lineX',
+        brushMode: 'single'
+      }
+    })
   }
 
   return (
@@ -127,9 +155,9 @@ export function LineChart({
       ref={chartRef}
       option={option}
       style={{ height, width: '100%' }}
+      onChartReady={onChartReady}
       onEvents={{ 
-        click: handleClick,
-        brushSelected: handleBrushSelected
+        'click': (params: any) => onDateClick?.(params.name)
       }}
       opts={{ renderer: 'svg' }}
     />

@@ -12,6 +12,7 @@ import { LineChart } from '@/components/charts/line-chart'
 import { TransactionsTable } from '@/components/transactions-table'
 import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
 import { CategoryFilter, filterByCategory } from '@/components/category-filter'
+import { DateRangeFilter, filterByDateRange } from '@/components/date-range-filter'
 import { getCategoryTotals, getCumulativeSpending } from '@/lib/analytics'
 import { useFilters } from '@/contexts/filter-context'
 import { AlertCircle, RefreshCw, TrendingUp, Wallet } from 'lucide-react'
@@ -19,15 +20,23 @@ import { AlertCircle, RefreshCw, TrendingUp, Wallet } from 'lucide-react'
 export default function DashboardPage() {
   const { data: transactions, isLoading, isFetching, error, refetch } = useRecentTransactions()
   const router = useRouter()
-  const { filters, setSelectedCategories } = useFilters()
-  const { selectedMonths, selectedYears, selectedCategories } = filters
+  const { filters, setSelectedCategories, setSelectedDateRange } = useFilters()
+  const { selectedMonths, selectedYears, selectedCategories, selectedDateRange } = filters
 
   const filteredTransactions = useMemo(() => {
     if (!transactions) return []
-    let filtered = filterByMonthYear(transactions, selectedMonths, selectedYears)
+    
+    let filtered = transactions
+    
+    if (selectedDateRange) {
+      filtered = filterByDateRange(filtered, selectedDateRange)
+    } else {
+      filtered = filterByMonthYear(filtered, selectedMonths, selectedYears)
+    }
+    
     filtered = filterByCategory(filtered, selectedCategories)
     return filtered
-  }, [transactions, selectedMonths, selectedYears, selectedCategories])
+  }, [transactions, selectedMonths, selectedYears, selectedCategories, selectedDateRange])
 
   if (isLoading) {
     return (
@@ -73,6 +82,9 @@ export default function DashboardPage() {
     label: d.date,
     value: d.total,
   }))
+  
+  console.log('DASHBOARD: cumulativeData', cumulativeData)
+  console.log('DASHBOARD: lineData', lineData)
 
   const handleCategoryClick = (category: string) => {
     router.push(`/category/${encodeURIComponent(category)}`)
@@ -87,9 +99,11 @@ export default function DashboardPage() {
     }
   }
 
-  const filterLabel = selectedMonths.length === 0 && selectedYears.length === 0
-    ? 'All time'
-    : `${selectedMonths.length === 0 ? 'All months' : ''} ${selectedYears.length === 1 ? selectedYears[0] : ''}`
+  const filterLabel = selectedDateRange
+    ? `${new Date(selectedDateRange.start).toLocaleDateString()} - ${new Date(selectedDateRange.end).toLocaleDateString()}`
+    : selectedMonths.length === 0 && selectedYears.length === 0
+      ? 'All time'
+      : `${selectedMonths.length === 0 ? 'All months' : ''} ${selectedYears.length === 1 ? selectedYears[0] : ''}`
 
   return (
     <div className="space-y-6">
@@ -109,6 +123,7 @@ export default function DashboardPage() {
             {isFetching ? 'Reloading...' : 'Reload data'}
           </Button>
           <CategoryFilter transactions={transactions} />
+          <DateRangeFilter />
           <MonthYearFilter transactions={transactions} />
         </div>
       </div>
@@ -187,9 +202,12 @@ export default function DashboardPage() {
               <LineChart 
                 data={lineData} 
                 height={350}
-                onBrushSelect={(start, end) => {
-                  // Could implement date range filtering here
-                  console.log('Date range selected:', start, '-', end)
+                onBrushSelect={(start: string, end: string) => {
+                  console.log('DASHBOARD: Received selection from chart:', start, 'to', end)
+                  setSelectedDateRange({
+                    start: new Date(start).toISOString(),
+                    end: new Date(end).toISOString()
+                  })
                 }}
               />
             ) : (
