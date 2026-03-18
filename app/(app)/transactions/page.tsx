@@ -129,52 +129,34 @@ export default function TransactionsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-end gap-4">
-              {/* Month/Year Filter */}
-              <MonthYearFilter transactions={transactions} />
-              
-              {/* Date Range Filter */}
-              <div className="space-y-2">
-                <Label>Date range</Label>
-                <DateRangeFilter />
-              </div>
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <MonthYearFilter transactions={transactions} />
+            <DateRangeFilter />
             
-            <div className="grid gap-4 sm:grid-cols-2">
-              {/* Search */}
-              <div className="space-y-2">
-                <Label htmlFor="search">Search description</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="search"
-                    placeholder="Search..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-
-              {/* Category Filter */}
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger id="category">
-                    <SelectValue placeholder="All categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_VALUE}>All categories</SelectItem>
-                    {categories.map(cat => (
-                      <SelectItem key={cat} value={cat} className="capitalize">
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="relative w-full sm:w-[240px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="search"
+                placeholder="Search description..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9"
+              />
             </div>
+
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger id="category" className="w-full sm:w-[180px] h-9">
+                <SelectValue placeholder="All categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>All categories</SelectItem>
+                {categories.map(cat => (
+                  <SelectItem key={cat} value={cat} className="capitalize">
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>

@@ -57,7 +57,7 @@ export function DateRangeFilter({ className }: DateRangeFilterProps) {
             id="date"
             variant={'outline'}
             className={cn(
-              'w-[240px] justify-start text-left font-normal h-10 px-3',
+              'w-[240px] justify-start text-left font-normal h-9 px-3',
               !selectedDateRange && 'text-muted-foreground'
             )}
           >
@@ -94,7 +94,7 @@ export function DateRangeFilter({ className }: DateRangeFilterProps) {
           variant="ghost" 
           size="icon" 
           onClick={clearRange}
-          className="h-10 w-10 shrink-0"
+          className="h-9 w-9 shrink-0"
           title="Clear date range"
         >
           <X className="h-4 w-4 opacity-50 hover:opacity-100" />
