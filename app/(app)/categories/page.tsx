@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useFullTransactions } from '@/hooks/use-transactions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { PieChart } from '@/components/charts/pie-chart'
 import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
@@ -13,10 +14,10 @@ import { CategoryFilter, filterByCategory } from '@/components/category-filter'
 import { DateRangeFilter, filterByDateRange } from '@/components/date-range-filter'
 import { getCategoryTotals, filterTransactionsByCategory, getDescriptionTotals } from '@/lib/analytics'
 import { useFilters } from '@/contexts/filter-context'
-import { AlertCircle, Wallet, TrendingUp, Tags } from 'lucide-react'
+import { AlertCircle, RefreshCw, Wallet, TrendingUp, Tags } from 'lucide-react'
 
 export default function CategoriesPage() {
-  const { data: transactions, isLoading, error } = useFullTransactions()
+  const { data: transactions, isLoading, isFetching, error, refetch } = useFullTransactions()
   const router = useRouter()
   const { filters } = useFilters()
   const { selectedMonths, selectedYears, selectedCategories, selectedDateRange } = filters
@@ -91,6 +92,15 @@ export default function CategoriesPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            {isFetching ? 'Reloading...' : 'Load all data'}
+          </Button>
           <CategoryFilter transactions={transactions} />
           <DateRangeFilter />
           <MonthYearFilter transactions={transactions} />
