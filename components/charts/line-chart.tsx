@@ -4,12 +4,16 @@ import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
 import { useRef } from 'react'
 
+interface LineChartPoint {
+  value: number
+  detail?: string
+}
+
 interface LineChartSeries {
   name: string
-  data: number[]
+  data: Array<number | LineChartPoint>
   color?: string
   areaFill?: boolean
-  stack?: string
   lineStyle?: 'solid' | 'dashed' | 'dotted'
   opacity?: number
 }
@@ -37,7 +41,7 @@ export function LineChart({
     tooltip: {
       trigger: 'axis',
       formatter: (params: unknown) => {
-        const items = (params as any[]) || []
+        const items = (params as Array<{ axisValueLabel?: string; name?: string; marker: string; seriesName: string; value: number | string; data?: LineChartPoint | number }>) || []
         if (items.length === 0) return ''
 
         const header = String(items[0]?.axisValueLabel || items[0]?.name || '')
@@ -48,7 +52,11 @@ export function LineChart({
             const formattedValue = Number.isNaN(value)
               ? 'N/A'
               : `${value.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${yAxisLabel}`
-            return `${item.marker}${item.seriesName}: ${formattedValue}`
+            const detail = typeof item.data === 'object' && item.data !== null && 'detail' in item.data && item.data.detail
+              ? `<br/><span style="opacity:0.75">${item.data.detail}</span>`
+              : ''
+
+            return `${item.marker}${item.seriesName}: ${formattedValue}${detail}`
           })
 
         return [header, ...lines].join('<br/>')
@@ -57,6 +65,7 @@ export function LineChart({
     legend: {
       top: 0,
       type: 'scroll',
+      data: series.map(item => item.name),
     },
     toolbox: onBrushSelect
       ? {
@@ -113,7 +122,6 @@ export function LineChart({
       name: item.name,
       type: 'line',
       smooth: true,
-      stack: item.stack,
       symbol: labels.length > 120 ? 'none' : 'circle',
       showSymbol: labels.length <= 120,
       emphasis: {
@@ -180,6 +188,7 @@ export function LineChart({
     <ReactECharts
       ref={chartRef}
       option={option}
+      notMerge
       style={{ height, width: '100%' }}
       onChartReady={onChartReady}
       onEvents={{

@@ -67,13 +67,7 @@ export interface CumulativeSpendingPoint {
   label: string
   timestamp: number
   total: number
-}
-
-export interface CumulativeCategoryPoint {
-  key: string
-  label: string
-  timestamp: number
-  totals: Record<string, number>
+  transactionName?: string
 }
 
 function roundCurrency(value: number): number {
@@ -118,6 +112,7 @@ export function getCumulativeSpending(
         label: formatDisplayLabel(transaction.timestamp, granularity),
         timestamp: transaction.timestamp.getTime(),
         total: roundCurrency(cumulative),
+        transactionName: transaction.what,
       }
     })
   }
@@ -136,47 +131,6 @@ export function getCumulativeSpending(
   })
 
   return Array.from(dailyTotals.values()).sort((a, b) => a.timestamp - b.timestamp)
-}
-
-export function getCumulativeSpendingByCategory(
-  transactions: Transaction[],
-  granularity: TimeSeriesGranularity = 'day'
-): CumulativeCategoryPoint[] {
-  const sorted = [...transactions].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
-  const runningTotals: Record<string, number> = {}
-
-  if (granularity === 'transaction') {
-    return sorted.map(transaction => {
-      runningTotals[transaction.category] = (runningTotals[transaction.category] || 0) + transaction.amountPLN
-
-      return {
-        key: formatTransactionKey(transaction.timestamp, transaction.transactionId),
-        label: formatDisplayLabel(transaction.timestamp, granularity),
-        timestamp: transaction.timestamp.getTime(),
-        totals: Object.fromEntries(
-          Object.entries(runningTotals).map(([category, total]) => [category, roundCurrency(total)])
-        ),
-      }
-    })
-  }
-
-  const aggregated = new Map<string, CumulativeCategoryPoint>()
-
-  sorted.forEach(transaction => {
-    runningTotals[transaction.category] = (runningTotals[transaction.category] || 0) + transaction.amountPLN
-    const key = formatDayKey(transaction.timestamp)
-
-    aggregated.set(key, {
-      key,
-      label: formatDisplayLabel(transaction.timestamp, granularity),
-      timestamp: transaction.timestamp.getTime(),
-      totals: Object.fromEntries(
-        Object.entries(runningTotals).map(([category, total]) => [category, roundCurrency(total)])
-      ),
-    })
-  })
-
-  return Array.from(aggregated.values()).sort((a, b) => a.timestamp - b.timestamp)
 }
 
 export function getCurrentMonthSpending(transactions: Transaction[]): number {

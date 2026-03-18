@@ -15,8 +15,7 @@ import { TransactionsTable } from '@/components/transactions-table'
 import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
 import { CategoryFilter, filterByCategory } from '@/components/category-filter'
 import { DateRangeFilter, filterByDateRange } from '@/components/date-range-filter'
-import { getCategoryTotals, getCumulativeSpending, getCumulativeSpendingByCategory, type TimeSeriesGranularity } from '@/lib/analytics'
-import { getCategoryColor } from '@/lib/colors'
+import { getCategoryTotals, getCumulativeSpending, type TimeSeriesGranularity } from '@/lib/analytics'
 import { useFilters } from '@/contexts/filter-context'
 import { AlertCircle, RefreshCw, TrendingUp, Wallet } from 'lucide-react'
 import type { Transaction } from '@/lib/types'
@@ -70,7 +69,6 @@ export default function DashboardPage() {
   const { filters, setSelectedCategories, setSelectedDateRange } = useFilters()
   const { selectedMonths, selectedYears, selectedCategories, selectedDateRange } = filters
   const [showPreviousMonth, setShowPreviousMonth] = useState(false)
-  const [stackByCategory, setStackByCategory] = useState(false)
   const [showTransactionTimes, setShowTransactionTimes] = useState(false)
 
   const filteredTransactions = useMemo(() => {
@@ -106,67 +104,43 @@ export default function DashboardPage() {
 
   const lineChartConfig = useMemo(() => {
     const currentSeries = getCumulativeSpending(filteredTransactions, granularity)
-    const previousSeries = getCumulativeSpending(previousMonthTransactions, granularity)
-    const currentCategorySeries = getCumulativeSpendingByCategory(filteredTransactions, granularity)
+    const previousSeries = showPreviousMonth ? getCumulativeSpending(previousMonthTransactions, granularity) : []
     const currentPeriodLabel = selectedDateRange
       ? 'Selected period'
       : selectedMonths.length === 1 && selectedYears.length === 1
         ? format(new Date(Number(selectedYears[0]), Number(selectedMonths[0]) - 1, 1), 'MMMM yyyy')
         : 'Current selection'
 
-    if (stackByCategory) {
-      const categories = Array.from(new Set(filteredTransactions.map(transaction => transaction.category)))
-      const labels = currentCategorySeries.map(point => point.label)
-      const series: Array<{ name: string; data: number[]; color: string; areaFill?: boolean; stack?: string; lineStyle?: 'solid' | 'dashed' | 'dotted'; opacity?: number }> = categories.map(category => ({
-        name: category,
-        data: currentCategorySeries.map(point => point.totals[category] ?? 0),
-        color: getCategoryColor(category),
-        areaFill: true,
-        stack: 'categories',
-      }))
-
-      if (showPreviousMonth && previousSeries.length > 0) {
-        series.push({
-          name: 'Previous month total',
-          data: previousSeries.map(point => point.total),
-          color: '#475569',
-          lineStyle: 'dashed' as const,
-          opacity: 0.9,
-        })
-      }
-
-      return {
-        labels,
-        series,
-        description: `Stacked cumulative spend by category for ${currentPeriodLabel.toLowerCase()}`,
-      }
-    }
-
-    const series: Array<{ name: string; data: number[]; color: string; areaFill?: boolean; stack?: string; lineStyle?: 'solid' | 'dashed' | 'dotted'; opacity?: number }> = [
-      {
-        name: currentPeriodLabel,
-        data: currentSeries.map(point => point.total),
-        color: '#3b82f6',
-        areaFill: true,
-      },
-    ]
-
-    if (showPreviousMonth && previousSeries.length > 0) {
-      series.push({
-        name: selectedDateRange ? 'Previous month window' : 'Previous month',
-        data: previousSeries.map(point => point.total),
-        color: '#64748b',
-        lineStyle: 'dashed' as const,
-        opacity: 0.95,
-      })
-    }
-
     return {
       labels: currentSeries.map(point => point.label),
-      series,
+      series: [
+        {
+          name: currentPeriodLabel,
+          data: currentSeries.map(point =>
+            granularity === 'transaction'
+              ? { value: point.total, detail: point.transactionName }
+              : point.total
+          ),
+          color: '#3b82f6',
+          areaFill: true,
+        },
+        ...(showPreviousMonth && previousSeries.length > 0
+          ? [{
+              name: selectedDateRange ? 'Previous month window' : 'Previous month',
+              data: previousSeries.map(point =>
+                granularity === 'transaction'
+                  ? { value: point.total, detail: point.transactionName }
+                  : point.total
+              ),
+              color: '#64748b',
+              lineStyle: 'dashed' as const,
+              opacity: 0.95,
+            }]
+          : []),
+      ],
       description: `Running spend for ${currentPeriodLabel.toLowerCase()}`,
     }
-  }, [filteredTransactions, granularity, previousMonthTransactions, selectedDateRange, selectedMonths, selectedYears, showPreviousMonth, stackByCategory])
+  }, [filteredTransactions, granularity, previousMonthTransactions, selectedDateRange, selectedMonths, selectedYears, showPreviousMonth])
 
   if (isLoading) {
     return (
@@ -223,7 +197,7 @@ export default function DashboardPage() {
 
   const canComparePreviousMonth = Boolean(comparisonWindow)
   const chartHelpText = showTransactionTimes
-    ? 'Granular mode plots every transaction timestamp, which is useful when you zoom into a day or two.'
+    ? 'Granular mode plots every transaction timestamp. Hovering a point also shows the transaction name when available.'
     : 'Daily mode keeps one cumulative point per day for a cleaner monthly view.'
 
   return (
@@ -316,7 +290,7 @@ export default function DashboardPage() {
                 {lineChartConfig.description}. Use the brush tool to select a smaller time window.
               </CardDescription>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
                 <div className="space-y-1">
                   <Label htmlFor="compare-previous-month">Previous month</Label>
@@ -327,17 +301,6 @@ export default function DashboardPage() {
                   checked={showPreviousMonth}
                   onCheckedChange={setShowPreviousMonth}
                   disabled={!canComparePreviousMonth}
-                />
-              </div>
-              <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
-                <div className="space-y-1">
-                  <Label htmlFor="stack-by-category">Stack by category</Label>
-                  <p className="text-xs text-muted-foreground">Show category-level cumulative layers.</p>
-                </div>
-                <Switch
-                  id="stack-by-category"
-                  checked={stackByCategory}
-                  onCheckedChange={setStackByCategory}
                 />
               </div>
               <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
