@@ -11,7 +11,7 @@ interface LineChartPoint {
 
 interface LineChartSeries {
   name: string
-  data: Array<number | LineChartPoint>
+  data: Array<number | LineChartPoint | null>
   color?: string
   areaFill?: boolean
   lineStyle?: 'solid' | 'dashed' | 'dotted'

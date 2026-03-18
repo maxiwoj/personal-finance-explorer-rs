@@ -64,6 +64,35 @@ function filterTransactionsByWindow(transactions: Transaction[], window: { start
   })
 }
 
+
+function buildAlignedSeriesData(
+  labels: string[],
+  points: Array<{ label: string; total: number; transactionName?: string }>,
+  includeDetails: boolean
+) {
+  const byLabel = new Map(points.map(point => [point.label, point]))
+
+  return labels.map(label => {
+    const point = byLabel.get(label)
+    if (!point) {
+      return null
+    }
+
+    if (includeDetails) {
+      return {
+        value: point.total,
+        detail: point.transactionName,
+      }
+    }
+
+    return point.total
+  })
+}
+
+function sortLabelsChronologically(labels: string[]) {
+  return [...labels].sort((a, b) => parseLabelToDate(a).getTime() - parseLabelToDate(b).getTime())
+}
+
 export default function DashboardPage() {
   const { data: transactions, isLoading, isFetching, error, refetch } = useRecentTransactions()
   const { filters, setSelectedCategories, setSelectedDateRange } = useFilters()
@@ -110,28 +139,24 @@ export default function DashboardPage() {
       : selectedMonths.length === 1 && selectedYears.length === 1
         ? format(new Date(Number(selectedYears[0]), Number(selectedMonths[0]) - 1, 1), 'MMMM yyyy')
         : 'Current selection'
+    const labels = sortLabelsChronologically([
+      ...currentSeries.map(point => point.label),
+      ...previousSeries.map(point => point.label),
+    ].filter((label, index, allLabels) => allLabels.indexOf(label) === index))
 
     return {
-      labels: currentSeries.map(point => point.label),
+      labels,
       series: [
         {
           name: currentPeriodLabel,
-          data: currentSeries.map(point =>
-            granularity === 'transaction'
-              ? { value: point.total, detail: point.transactionName }
-              : point.total
-          ),
+          data: buildAlignedSeriesData(labels, currentSeries, granularity === 'transaction'),
           color: '#3b82f6',
           areaFill: true,
         },
         ...(showPreviousMonth && previousSeries.length > 0
           ? [{
               name: selectedDateRange ? 'Previous month window' : 'Previous month',
-              data: previousSeries.map(point =>
-                granularity === 'transaction'
-                  ? { value: point.total, detail: point.transactionName }
-                  : point.total
-              ),
+              data: buildAlignedSeriesData(labels, previousSeries, granularity === 'transaction'),
               color: '#64748b',
               lineStyle: 'dashed' as const,
               opacity: 0.95,
