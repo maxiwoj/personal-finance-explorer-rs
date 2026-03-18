@@ -18,14 +18,14 @@ export function ThemeToggle({ className }: { className?: string }) {
 
   return (
     <Button
-      variant="outline"
-      size="sm"
+      variant="ghost"
+      size="icon-sm"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
-      className={cn('items-center gap-2', className)}
+      className={cn('text-muted-foreground hover:text-foreground', className)}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
     >
       {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-      <span>{isDark ? 'Light mode' : 'Dark mode'}</span>
     </Button>
   )
 }

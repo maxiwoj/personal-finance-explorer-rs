@@ -108,10 +108,6 @@ export function Nav() {
           </div>
         )}
 
-        <div className="hidden md:flex">
-          <ThemeToggle />
-        </div>
-
         <Button variant="outline" size="sm" onClick={() => void handleReload()} disabled={isReloading} className="hidden md:flex items-center gap-2">
           <RefreshCw className={cn('h-4 w-4', isReloading && 'animate-spin')} />
           {reloadLabel}
@@ -122,7 +118,11 @@ export function Nav() {
           Sign Out
         </Button>
 
-        <button className="ml-auto md:hidden p-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+        <ThemeToggle className="hidden md:inline-flex" />
+
+        <ThemeToggle className="ml-auto md:hidden" />
+
+        <button className="md:hidden p-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
           {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </div>
@@ -148,7 +148,6 @@ export function Nav() {
               </Link>
             )
           })}
-          <ThemeToggle className="w-full justify-start px-3" />
           <Button variant="outline" size="sm" onClick={() => void handleReload()} disabled={isReloading} className="w-full justify-start gap-3 px-3">
             <RefreshCw className={cn('h-4 w-4', isReloading && 'animate-spin')} />
             {reloadLabel}
