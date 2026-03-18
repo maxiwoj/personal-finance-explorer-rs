@@ -78,6 +78,24 @@ export async function setCachedFullTransactions(transactions: Transaction[]): Pr
   }
 }
 
+export async function clearRecentTransactionsCache(): Promise<void> {
+  try {
+    const db = await getDB()
+    await db.delete('cache', 'recent_transactions')
+  } catch (error) {
+    console.error('Failed to clear recent transactions cache:', error)
+  }
+}
+
+export async function clearFullTransactionsCache(): Promise<void> {
+  try {
+    const db = await getDB()
+    await db.delete('cache', 'full_transactions')
+  } catch (error) {
+    console.error('Failed to clear full transactions cache:', error)
+  }
+}
+
 export async function getLastSyncTimestamp(): Promise<number | null> {
   try {
     const db = await getDB()

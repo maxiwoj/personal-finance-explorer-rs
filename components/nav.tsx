@@ -6,14 +6,38 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { LayoutDashboard, PieChart, List, LogOut, Menu, X, RefreshCw, AlertTriangle, FlaskConical } from 'lucide-react'
-import { useState } from 'react'
-import { useReloadFinanceData } from '@/hooks/use-transactions'
+import { useMemo, useState } from 'react'
+import { useReloadFinanceData, type FinanceDataScope } from '@/hooks/use-transactions'
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/categories', label: 'Categories', icon: PieChart },
   { href: '/transactions', label: 'Transactions', icon: List },
 ]
+
+function getReloadConfig(pathname: string, mode: 'google' | 'demo'): { scope: FinanceDataScope; idleLabel: string; loadingLabel: string } {
+  if (mode === 'demo') {
+    return {
+      scope: 'all',
+      idleLabel: 'Regenerate demo data',
+      loadingLabel: 'Regenerating demo data...',
+    }
+  }
+
+  if (pathname === '/dashboard') {
+    return {
+      scope: 'recent',
+      idleLabel: 'Refresh recent data',
+      loadingLabel: 'Refreshing recent data...',
+    }
+  }
+
+  return {
+    scope: 'full',
+    idleLabel: 'Reload all data',
+    loadingLabel: 'Reloading all data...',
+  }
+}
 
 export function Nav() {
   const pathname = usePathname()
@@ -22,14 +46,18 @@ export function Nav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isReloading, setIsReloading] = useState(false)
 
+  const reloadConfig = useMemo(() => getReloadConfig(pathname, mode), [mode, pathname])
+
   const handleReload = async () => {
     setIsReloading(true)
     try {
-      await reloadFinanceData()
+      await reloadFinanceData(reloadConfig.scope)
     } finally {
       setIsReloading(false)
     }
   }
+
+  const reloadLabel = isReloading ? reloadConfig.loadingLabel : reloadConfig.idleLabel
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -78,7 +106,7 @@ export function Nav() {
 
         <Button variant="outline" size="sm" onClick={() => void handleReload()} disabled={isReloading} className="hidden md:flex items-center gap-2">
           <RefreshCw className={cn('h-4 w-4', isReloading && 'animate-spin')} />
-          {mode === 'demo' ? 'Reload demo data' : 'Reload data'}
+          {reloadLabel}
         </Button>
 
         <Button variant="ghost" size="sm" onClick={signOut} className="hidden md:flex items-center gap-2">
@@ -114,7 +142,7 @@ export function Nav() {
           })}
           <Button variant="outline" size="sm" onClick={() => void handleReload()} disabled={isReloading} className="w-full justify-start gap-3 px-3">
             <RefreshCw className={cn('h-4 w-4', isReloading && 'animate-spin')} />
-            {mode === 'demo' ? 'Reload demo data' : 'Reload data'}
+            {reloadLabel}
           </Button>
           <Button
             variant="ghost"

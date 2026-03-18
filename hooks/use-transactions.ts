@@ -4,6 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useFinanceDataProvider } from '@/contexts/data-provider-context'
 import type { Transaction } from '@/lib/types'
 
+export type FinanceDataScope = 'recent' | 'full' | 'all'
+
 export function useRecentTransactions() {
   const provider = useFinanceDataProvider()
 
@@ -28,11 +30,19 @@ export function useReloadFinanceData() {
   const provider = useFinanceDataProvider()
   const queryClient = useQueryClient()
 
-  return async () => {
-    await provider.reloadData()
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['recent-transactions', provider.mode] }),
-      queryClient.invalidateQueries({ queryKey: ['full-transactions', provider.mode] }),
-    ])
+  return async (scope: FinanceDataScope = 'all') => {
+    await provider.reloadData(scope)
+
+    const invalidations: Promise<void>[] = []
+
+    if (scope === 'recent' || scope === 'all') {
+      invalidations.push(queryClient.invalidateQueries({ queryKey: ['recent-transactions', provider.mode] }))
+    }
+
+    if (scope === 'full' || scope === 'all') {
+      invalidations.push(queryClient.invalidateQueries({ queryKey: ['full-transactions', provider.mode] }))
+    }
+
+    await Promise.all(invalidations)
   }
 }

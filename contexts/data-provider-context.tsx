@@ -1,10 +1,11 @@
 'use client'
 
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react'
+import { createContext, useContext, useMemo, type ReactNode } from 'react'
 import { useAuth } from '@/contexts/auth-context'
-import { clearCache, getCachedFullTransactions, getCachedRecentTransactions, setCachedFullTransactions, setCachedRecentTransactions } from '@/lib/cache'
+import { clearCache, clearFullTransactionsCache, clearRecentTransactionsCache, getCachedFullTransactions, getCachedRecentTransactions, setCachedFullTransactions, setCachedRecentTransactions } from '@/lib/cache'
 import { getOrCreateDemoTransactions } from '@/lib/demo-data'
 import { fetchFullTransactions, fetchRecentTransactions } from '@/lib/sheets'
+import type { FinanceDataScope } from '@/hooks/use-transactions'
 import type { Transaction } from '@/lib/types'
 
 export type DataMode = 'google' | 'demo'
@@ -13,7 +14,7 @@ export interface FinanceDataProvider {
   mode: DataMode
   getRecentTransactions: () => Promise<Transaction[]>
   getFullTransactions: () => Promise<Transaction[]>
-  reloadData: () => Promise<void>
+  reloadData: (scope?: FinanceDataScope) => Promise<void>
 }
 
 const DataProviderContext = createContext<FinanceDataProvider | null>(null)
@@ -45,7 +46,17 @@ function buildGoogleProvider(accessToken: string | null): FinanceDataProvider {
       await setCachedFullTransactions(fresh)
       return fresh
     },
-    async reloadData() {
+    async reloadData(scope = 'all') {
+      if (scope === 'recent') {
+        await clearRecentTransactionsCache()
+        return
+      }
+
+      if (scope === 'full') {
+        await clearFullTransactionsCache()
+        return
+      }
+
       await clearCache()
     },
   }
