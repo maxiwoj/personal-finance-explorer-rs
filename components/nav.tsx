@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
-import { LayoutDashboard, PieChart, List, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, PieChart, List, LogOut, Menu, X, RefreshCw, AlertTriangle } from 'lucide-react'
 import { useState } from 'react'
 
 const navItems = [
@@ -16,11 +16,24 @@ const navItems = [
 
 export function Nav() {
   const pathname = usePathname()
-  const { signOut } = useAuth()
+  const { signOut, isExpiring, refreshSession } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      {isExpiring && (
+        <div className="bg-amber-500 text-white px-4 py-1 text-xs font-medium flex items-center justify-center gap-2 animate-in fade-in slide-in-from-top-1">
+          <AlertTriangle className="h-3 w-3" />
+          <span>Session expiring soon</span>
+          <button 
+            onClick={refreshSession}
+            className="underline underline-offset-2 hover:text-amber-100 flex items-center gap-1"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Refresh
+          </button>
+        </div>
+      )}
       <div className="container px-4 md:px-6 lg:px-8 mx-auto max-w-7xl flex h-14 items-center">
         <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
           <span className="font-bold text-lg">Finance Explorer</span>

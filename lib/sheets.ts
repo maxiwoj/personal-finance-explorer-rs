@@ -43,6 +43,54 @@ function parseTimestamp(timestampStr: string): Date {
   return new Date()
 }
 
+function parseMoney(value: string | undefined): number | null {
+  if (!value) return null
+  
+  // Clean the string:
+  // 1. Replace special minus sign − (U+2212) with standard hyphen -
+  // 2. Remove any characters that are not digits, commas, dots, or the leading minus sign
+  // 3. Keep the minus sign only if it's at the beginning
+  
+  let cleaned = value.trim().replace(/−/g, '-')
+  
+  // If there are multiple minus signs or it's not at the start, this is weird but let's be safe
+  const isNegative = cleaned.startsWith('-')
+  
+  // Remove everything except digits, dots and commas
+  cleaned = cleaned.replace(/[^\d.,]/g, '')
+  
+  if (!cleaned) return null
+  
+  // Handle decimal separator
+  // If there's both a comma and a dot, the last one is likely the decimal separator
+  const lastComma = cleaned.lastIndexOf(',')
+  const lastDot = cleaned.lastIndexOf('.')
+  
+  if (lastComma > lastDot) {
+    // Comma is decimal separator (e.g. 1.234,56 or 1234,56)
+    // Remove dots (thousands separators) and replace comma with dot
+    cleaned = cleaned.replace(/\./g, '').replace(',', '.')
+  } else if (lastDot > lastComma) {
+    // Dot is decimal separator (e.g. 1,234.56 or 1234.56)
+    // Remove commas (thousands separators)
+    cleaned = cleaned.replace(/,/g, '')
+  } else {
+    // Only one type of separator or none. 
+    // If it's a comma, it might be a decimal separator (European) or thousands (US)
+    // In the context of PLN, it's very likely a decimal separator.
+    // However, if it's followed by exactly 3 digits, it *might* be thousands.
+    // But let's assume if there's only one, it's a decimal separator if it's towards the end.
+    if (lastComma !== -1) {
+      cleaned = cleaned.replace(',', '.')
+    }
+  }
+  
+  const parsed = parseFloat(cleaned)
+  if (isNaN(parsed)) return null
+  
+  return isNegative ? -parsed : parsed
+}
+
 function parseRow(row: string[]): Transaction | null {
   try {
     if (row.length < 7) return null
@@ -58,13 +106,16 @@ function parseRow(row: string[]): Transaction | null {
     const derivedMonthYear = monthYear?.trim() || 
       `${parsedTimestamp.getMonth() + 1}_${parsedTimestamp.getFullYear()}`
     
+    const pAmountOriginal = parseMoney(amount) || 0
+    const pAmountPLN = parseMoney(amountPLN)
+    
     return {
       timestamp: parsedTimestamp,
       what: what.trim(),
       category: category.trim().toLowerCase(),
-      amountOriginal: parseFloat(amount) || 0,
+      amountOriginal: pAmountOriginal,
       currency: currency?.trim() || 'PLN',
-      amountPLN: parseFloat(amountPLN) || parseFloat(amount) || 0,
+      amountPLN: pAmountPLN !== null ? pAmountPLN : pAmountOriginal,
       monthYear: derivedMonthYear,
       monthName: '', // Not used - derive from timestamp when needed
       transactionId: transactionId?.trim() || `${timestamp}-${what}-${Math.random().toString(36).slice(2, 8)}`
