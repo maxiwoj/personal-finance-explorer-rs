@@ -34,15 +34,23 @@ export function getDescriptionTotals(transactions: Transaction[]): DescriptionTo
     .sort((a, b) => b.total - a.total)
 }
 
+function getMonthName(monthYear: string): string {
+  const [month, year] = monthYear.split('_').map(Number)
+  const date = new Date(year, month - 1, 1)
+  return date.toLocaleString('default', { month: 'long', year: 'numeric' })
+}
+
 export function getMonthlyTotals(transactions: Transaction[]): MonthlyTotal[] {
   const totals = new Map<string, { monthName: string; total: number }>()
   
   transactions.forEach(t => {
     const current = totals.get(t.monthYear)
+    const monthName = t.monthName || getMonthName(t.monthYear)
+    
     if (current) {
       current.total += t.amountPLN
     } else {
-      totals.set(t.monthYear, { monthName: t.monthName, total: t.amountPLN })
+      totals.set(t.monthYear, { monthName, total: t.amountPLN })
     }
   })
   
