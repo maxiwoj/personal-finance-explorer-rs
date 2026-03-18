@@ -18,9 +18,12 @@ interface AuthContextType {
   accessToken: string | null
   isAuthenticated: boolean
   isLoading: boolean
+  isExpiring: boolean
+  expiryTime: number | null
   error: string | null
   signIn: () => void
   signOut: () => void
+  refreshSession: () => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -37,6 +40,7 @@ declare global {
           }) => {
             requestAccessToken: (options?: { prompt?: string; hint?: string }) => void
           }
+          hasGrantedAllScopes: (response: any, scope: string) => boolean
           revoke: (token: string, callback: () => void) => void
         }
       }
@@ -46,31 +50,45 @@ declare global {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null)
+  const [expiryTime, setExpiryTime] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tokenClient, setTokenClient] = useState<ReturnType<typeof window.google.accounts.oauth2.initTokenClient> | null>(null)
-  const hasAttemptedSilent = useRef(false)
-  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const [isExpiring, setIsExpiring] = useState(false)
 
-  const clearRefreshTimer = () => {
-    if (refreshTimerRef.current) {
-      clearTimeout(refreshTimerRef.current)
-      refreshTimerRef.current = null
-    }
-  }
+  // Check if token is expiring (less than 10 minutes left)
+  useEffect(() => {
+    if (!expiryTime) return
 
-  const scheduleRefresh = (expiresInSeconds: number) => {
-    clearRefreshTimer()
-    // Refresh 5 minutes before expiration (or immediately if less than 5 mins left)
-    const refreshDelay = Math.max(0, (expiresInSeconds - 300) * 1000)
-    
-    refreshTimerRef.current = setTimeout(() => {
-      if (tokenClient) {
-        const hint = localStorage.getItem(HINT_KEY) || undefined
-        tokenClient.requestAccessToken({ prompt: 'none', hint })
+    const checkExpiry = () => {
+      const remaining = expiryTime - Date.now()
+      setIsExpiring(remaining > 0 && remaining < 600000) // 10 minutes
+      
+      if (remaining <= 0 && accessToken) {
+        // Token actually expired
+        setAccessToken(null)
+        localStorage.removeItem(STORAGE_KEY)
+        localStorage.removeItem(EXPIRY_KEY)
       }
-    }, refreshDelay)
-  }
+    }
+
+    checkExpiry()
+    const interval = setInterval(checkExpiry, 30000) // Check every 30 seconds
+    return () => clearInterval(interval)
+  }, [expiryTime, accessToken])
+
+  // Check session on window focus
+  useEffect(() => {
+    const onFocus = () => {
+      if (expiryTime && expiryTime <= Date.now() && accessToken) {
+        setAccessToken(null)
+        localStorage.removeItem(STORAGE_KEY)
+        localStorage.removeItem(EXPIRY_KEY)
+      }
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [expiryTime, accessToken])
 
   // Initialize state from localStorage
   useEffect(() => {
@@ -79,8 +97,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedHint = localStorage.getItem(HINT_KEY)
 
     if (storedToken && storedExpiry) {
-      // If we have a token but no email hint, it's likely an old token 
-      // without the new email scope. Clear it to force fresh consent.
       if (!storedHint) {
         localStorage.removeItem(STORAGE_KEY)
         localStorage.removeItem(EXPIRY_KEY)
@@ -88,17 +104,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      const expiryTime = parseInt(storedExpiry, 10)
-      const now = Date.now()
-      
-      if (now < expiryTime - 60000) {
+      const expiry = parseInt(storedExpiry, 10)
+      if (Date.now() < expiry - 60000) {
         setAccessToken(storedToken)
-        setIsLoading(false)
-        // Schedule a refresh for the remaining time
-        scheduleRefresh((expiryTime - now) / 1000)
+        setExpiryTime(expiry)
+      } else {
+        localStorage.removeItem(STORAGE_KEY)
+        localStorage.removeItem(EXPIRY_KEY)
       }
     }
-  }, [tokenClient])
+    setIsLoading(false)
+  }, [])
 
   useEffect(() => {
     // Load Google Identity Services script
@@ -113,15 +129,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           scope: REQUIRED_SCOPES,
           callback: async (response) => {
             if (response.error) {
-              // If silent login fails because of scope/consent issues, we just stop loading 
-              // and let the user click "Sign In" manually to provide new consent.
               if (response.error === 'immediate_failed' || response.error === 'interaction_required') {
                 console.log('Silent authentication failed, manual sign-in required.')
-                // If we had a stored token but it's clearly not working with new scopes, clear it
                 localStorage.removeItem(STORAGE_KEY)
                 localStorage.removeItem(EXPIRY_KEY)
-                localStorage.removeItem(HINT_KEY)
                 setAccessToken(null)
+                setExpiryTime(null)
               } else {
                 setError(response.error === 'access_denied' ? 'Access denied. Please try again.' : response.error)
               }
@@ -130,19 +143,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
 
             if (response.access_token) {
-              // Check if all scopes were granted
-              if (window.google && !window.google.accounts.oauth2.hasGrantedAllScopes(response, REQUIRED_SCOPES)) {
-                console.warn('Not all scopes were granted. This might cause the "insufficient scopes" error.')
-              }
-              
               setAccessToken(response.access_token)
               
               const expiresIn = response.expires_in || 3600
               const expiry = Date.now() + expiresIn * 1000
+              setExpiryTime(expiry)
+              
               localStorage.setItem(STORAGE_KEY, response.access_token)
               localStorage.setItem(EXPIRY_KEY, expiry.toString())
               
-              // Fetch email for future hint
               try {
                 const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                   headers: { Authorization: `Bearer ${response.access_token}` }
@@ -153,36 +162,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   if (userInfo.email) {
                     localStorage.setItem(HINT_KEY, userInfo.email)
                   }
-                } else if (userInfoResponse.status === 403) {
-                  // This happens if the token doesn't have the email scope
-                  console.warn('Token has insufficient scopes for userinfo')
-                  localStorage.removeItem(STORAGE_KEY)
-                  localStorage.removeItem(EXPIRY_KEY)
-                  setAccessToken(null)
-                  setIsLoading(false)
-                  return
                 }
               } catch (e) {
                 console.error('Failed to fetch user hint:', e)
               }
 
-              scheduleRefresh(expiresIn)
               setError(null)
             }
             setIsLoading(false)
           },
         })
         setTokenClient(client)
-
-        // Finalize loading state
-        const storedToken = localStorage.getItem(STORAGE_KEY)
-        const storedExpiry = localStorage.getItem(EXPIRY_KEY)
-        const storedHint = localStorage.getItem(HINT_KEY)
-        const isValid = storedToken && storedExpiry && storedHint && (parseInt(storedExpiry, 10) > Date.now() + 60000)
-
-        // We don't attempt silent login on mount anymore because it triggers browser popup blockers.
-        // Persistence is handled by localStorage for the duration of the token (1 hour).
-        setIsLoading(false)
       } else {
         setIsLoading(false)
       }
@@ -194,7 +184,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     document.body.appendChild(script)
 
     return () => {
-      clearRefreshTimer()
       const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]')
       if (existingScript) {
         existingScript.remove()
@@ -208,23 +197,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
     setError(null)
-    // Force consent screen to ensure user can check all necessary boxes
-    tokenClient.requestAccessToken({ prompt: 'consent' })
+    try {
+      tokenClient.requestAccessToken({ prompt: 'consent' })
+    } catch (e) {
+      console.error('Sign-in failed to trigger:', e)
+      setError('Authentication failed to start. Please check if popups are blocked.')
+    }
+  }, [tokenClient])
+
+  const refreshSession = useCallback(() => {
+    if (!tokenClient) return
+    setError(null)
+    try {
+      const hint = localStorage.getItem(HINT_KEY) || undefined
+      // Try with prompt: none first, but since this is usually called by user action, 
+      // it might work better if we used 'select_account' or similar if blocked.
+      // But for "on-demand", let's try 'none' first.
+      tokenClient.requestAccessToken({ prompt: 'none', hint })
+    } catch (e) {
+      console.error('Refresh failed to trigger:', e)
+      // If none fails, we'll let the user click sign-in again
+    }
   }, [tokenClient])
 
   const signOut = useCallback(() => {
     const currentToken = accessToken || localStorage.getItem(STORAGE_KEY)
     
-    clearRefreshTimer()
     if (currentToken && window.google) {
       window.google.accounts.oauth2.revoke(currentToken, () => {
         setAccessToken(null)
+        setExpiryTime(null)
         localStorage.removeItem(STORAGE_KEY)
         localStorage.removeItem(EXPIRY_KEY)
         localStorage.removeItem(HINT_KEY)
       })
     } else {
       setAccessToken(null)
+      setExpiryTime(null)
       localStorage.removeItem(STORAGE_KEY)
       localStorage.removeItem(EXPIRY_KEY)
       localStorage.removeItem(HINT_KEY)
@@ -237,9 +246,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         accessToken,
         isAuthenticated: !!accessToken,
         isLoading,
+        isExpiring,
+        expiryTime,
         error,
         signIn,
         signOut,
+        refreshSession,
       }}
     >
       {children}
