@@ -5,6 +5,7 @@ import { AuthProvider } from '@/contexts/auth-context'
 import { FinanceDataProvider } from '@/contexts/data-provider-context'
 import { FilterProvider } from '@/contexts/filter-context'
 import { useState, type ReactNode } from 'react'
+import { ThemeProvider } from '@/components/theme-provider'
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -20,12 +21,14 @@ export function Providers({ children }: { children: ReactNode }) {
   )
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <FinanceDataProvider>
-          <FilterProvider>{children}</FilterProvider>
-        </FinanceDataProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <FinanceDataProvider>
+            <FilterProvider>{children}</FilterProvider>
+          </FinanceDataProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   )
 }

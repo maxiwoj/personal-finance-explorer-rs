@@ -179,14 +179,14 @@ export default function DashboardPage() {
         {
           name: currentPeriodLabel,
           data: buildAlignedSeriesData(labels, currentSeries),
-          color: '#3b82f6',
+          color: '#60a5fa',
           areaFill: true,
         },
         ...(showPreviousMonth && previousSeries.length > 0
           ? [{
               name: selectedDateRange ? 'Previous month window' : 'Previous month',
               data: buildAlignedSeriesData(labels, previousSeries),
-              color: '#64748b',
+              color: '#94a3b8',
               lineStyle: 'dashed' as const,
               opacity: 0.95,
             }]
