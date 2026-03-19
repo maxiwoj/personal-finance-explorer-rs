@@ -46,7 +46,8 @@ export function Nav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isReloading, setIsReloading] = useState(false)
 
-  const reloadConfig = useMemo(() => getReloadConfig(pathname, mode), [mode, pathname])
+  const activeMode = mode ?? 'google'
+  const reloadConfig = useMemo(() => getReloadConfig(pathname, activeMode), [activeMode, pathname])
 
   const handleReload = async () => {
     setIsReloading(true)

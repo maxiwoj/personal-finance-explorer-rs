@@ -1,10 +1,23 @@
-import { google } from 'googleapis';
-import { GOOGLE_CLIENT_ID, REDIRECT_URI } from './config';
+import { google } from 'googleapis'
+import { GOOGLE_CLIENT_ID, REDIRECT_URI } from './config'
 
-export const oauth2Client = new google.auth.OAuth2(
-  GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  REDIRECT_URI
-);
+export const COOKIE_NAME = 'pfe_refresh_token'
+export const REFRESH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365
 
-export const COOKIE_NAME = 'pfe_refresh_token';
+export function createOAuth2Client() {
+  return new google.auth.OAuth2(
+    GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    REDIRECT_URI
+  )
+}
+
+export function getRefreshCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: REFRESH_COOKIE_MAX_AGE_SECONDS,
+  }
+}
