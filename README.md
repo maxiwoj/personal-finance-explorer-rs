@@ -1,10 +1,14 @@
 # Personal Finance Explorer
 
+<p align="center">
+  <img src="./public/logo.png" alt="Personal Finance Explorer Logo" width="120" height="120" />
+</p>
+
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmaxiwoj%2Fpersonal-finance-explorer-rs&env=NEXT_PUBLIC_GOOGLE_CLIENT_ID,NEXT_PUBLIC_SPREADSHEET_ID,GOOGLE_CLIENT_SECRET,NEXT_PUBLIC_REDIRECT_URI&envDescription=Required%20Google%20OAuth%20credentials%2C%20Spreadsheet%20ID%2C%20and%20Redirect%20URI.%20See%20the%20Deployment%20Guide%20for%20setup%20instructions.&envLink=https%3A%2F%2Fgithub.com%2Fmaxiwoj%2Fpersonal-finance-explorer-rs%2Fblob%2Fmain%2Fdocs%2Fdeployment.md)
 
 A powerful, privacy-focused personal finance dashboard that turns your Google Sheets into a rich, interactive explorer. Built with Next.js, Google OAuth 2.0, and high-performance charting.
 
-[![Live Demo](https://img.shields.io/badge/Demo-Live%20Preview-black?style=for-the-badge&logo=vercel)](https://v0-personal-finance-dashboard-eta-seven.vercel.app/)
+[![Live Demo](https://img.shields.io/badge/Demo-Live%20Preview-3b82f6?style=for-the-badge&labelColor=10b981)](https://v0-personal-finance-dashboard-eta-seven.vercel.app/)
 
 ![Dashboard Overview](./docs/images/dashboard.png)
 
