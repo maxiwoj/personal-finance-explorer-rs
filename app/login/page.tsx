@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
@@ -69,6 +70,15 @@ export default function LoginPage() {
           <p className="text-xs text-center text-muted-foreground">
             Google mode reads your spreadsheet. Demo mode generates sample transactions locally and supports reloading demo data.
           </p>
+
+          <div className="flex justify-center gap-4 pt-4 border-t">
+            <Link href="/terms" className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors underline underline-offset-4">
+              Terms of Service
+            </Link>
+            <Link href="/privacy" className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors underline underline-offset-4">
+              Privacy Policy
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>
