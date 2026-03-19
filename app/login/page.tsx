@@ -32,8 +32,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-            <Wallet className="h-7 w-7 text-primary" />
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary/10">
+            <img src="/logo.png" alt="Logo" className="h-full w-full object-contain p-2" />
           </div>
           <CardTitle className="text-2xl">Personal Finance Explorer</CardTitle>
           <CardDescription>
