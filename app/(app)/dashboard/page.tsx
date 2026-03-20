@@ -14,6 +14,7 @@ import { TransactionsTable } from '@/components/transactions-table'
 import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
 import { CategoryFilter, filterByCategory } from '@/components/category-filter'
 import { DateRangeFilter, filterByDateRange } from '@/components/date-range-filter'
+import { RecentTransactionsCarousel } from '@/components/recent-transactions-carousel'
 import { getCategoryTotals, getCumulativeSpending, type TimeSeriesGranularity } from '@/lib/analytics'
 import { useFilters } from '@/contexts/filter-context'
 import { AlertCircle, TrendingUp, Wallet } from 'lucide-react'
@@ -268,6 +269,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <RecentTransactionsCarousel transactions={transactions || []} limit={6} className="pb-2" />
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -416,7 +419,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card id="recent-transactions">
         <CardHeader>
           <CardTitle>Recent Transactions</CardTitle>
           <CardDescription>Last 20 transactions in selected period</CardDescription>
