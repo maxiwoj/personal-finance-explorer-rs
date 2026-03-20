@@ -33,7 +33,7 @@ interface AuthContextType {
   signInWithGoogle: () => void
   enterDemoMode: () => void
   signOut: () => void
-  refreshSession: () => void
+  refreshSession: () => Promise<boolean>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -48,6 +48,8 @@ declare global {
             scope: string
             ux_mode?: 'popup' | 'redirect'
             redirect_uri?: string
+            access_type?: 'offline' | 'online'
+            prompt?: '' | 'consent' | 'select_account'
             callback: (response: { code?: string; error?: string }) => void
           }) => GoogleCodeClient
           revoke: (token: string, callback: () => void) => void
@@ -72,10 +74,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [codeClient, setCodeClient] = useState<GoogleCodeClient | null>(null)
   const [isExpiring, setIsExpiring] = useState(false)
 
+  const clearAuthState = useCallback(() => {
+    clearGoogleSession()
+    setAccessToken(null)
+    setExpiryTime(null)
+    setMode(null)
+    setIsExpiring(false)
+    localStorage.removeItem(MODE_KEY)
+  }, [])
+
   const handleAuthResponse = useCallback(async (data: { access_token: string, expiry_date: number }) => {
     setMode('google')
     setAccessToken(data.access_token)
     setExpiryTime(data.expiry_date)
+    setIsExpiring(false)
 
     localStorage.setItem(MODE_KEY, 'google')
     localStorage.setItem(STORAGE_KEY, data.access_token)
@@ -100,25 +112,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshSession = useCallback(async () => {
     try {
-      const response = await fetch('/api/auth/refresh', { method: 'POST' })
-      if (response.ok) {
-        const data = await response.json()
-        await handleAuthResponse(data)
-        return true
-      } else {
-        // If refresh fails, clear everything
-        clearGoogleSession()
-        setAccessToken(null)
-        setExpiryTime(null)
-        setMode(null)
-        localStorage.removeItem(MODE_KEY)
+      const response = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        credentials: 'same-origin',
+      })
+
+      if (!response.ok) {
+        clearAuthState()
         return false
       }
+
+      const data = await response.json()
+      await handleAuthResponse(data)
+      return true
     } catch (e) {
       console.error('Refresh error:', e)
+      clearAuthState()
       return false
     }
-  }, [handleAuthResponse])
+  }, [clearAuthState, handleAuthResponse])
 
   useEffect(() => {
     if (!expiryTime || mode !== 'google') return
@@ -127,33 +139,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const remaining = expiryTime - Date.now()
       setIsExpiring(remaining > 0 && remaining < 600000)
 
-      if (remaining <= 0 && accessToken) {
-        // Try to refresh automatically
+      if (remaining <= 0) {
         void refreshSession()
       }
     }
 
     checkExpiry()
-    const interval = setInterval(checkExpiry, 30000)
-    return () => clearInterval(interval)
-  }, [expiryTime, accessToken, mode, refreshSession])
+    const interval = window.setInterval(checkExpiry, 30000)
+    return () => window.clearInterval(interval)
+  }, [expiryTime, mode, refreshSession])
 
   useEffect(() => {
     const onFocus = () => {
-      if (mode === 'google' && expiryTime && expiryTime <= Date.now() && accessToken) {
+      if (mode === 'google' && expiryTime && expiryTime <= Date.now()) {
         void refreshSession()
       }
     }
 
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
-  }, [expiryTime, accessToken, mode, refreshSession])
+  }, [expiryTime, mode, refreshSession])
 
   useEffect(() => {
     const init = async () => {
       const storedMode = localStorage.getItem(MODE_KEY) as AuthMode
       const storedToken = localStorage.getItem(STORAGE_KEY)
       const storedExpiry = localStorage.getItem(EXPIRY_KEY)
+      const hasValidStoredToken = !!storedToken && !!storedExpiry && Date.now() < parseInt(storedExpiry, 10) - 60000
 
       if (storedMode === 'demo') {
         setMode('demo')
@@ -161,25 +173,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      if (storedMode === 'google') {
-        // Check if current token is still valid
-        if (storedToken && storedExpiry && Date.now() < parseInt(storedExpiry, 10) - 60000) {
-          setMode('google')
-          setAccessToken(storedToken)
-          setExpiryTime(parseInt(storedExpiry, 10))
-          setIsLoading(false)
-        } else {
-          // Try to refresh
-          const success = await refreshSession()
-          if (!success) {
-            clearGoogleSession()
-            localStorage.removeItem(MODE_KEY)
-          }
-          setIsLoading(false)
-        }
-      } else {
+      if (hasValidStoredToken) {
+        setMode('google')
+        setAccessToken(storedToken)
+        setExpiryTime(parseInt(storedExpiry!, 10))
         setIsLoading(false)
+        return
       }
+
+      const restored = await refreshSession()
+      if (!restored && storedMode === 'google') {
+        clearGoogleSession()
+        localStorage.removeItem(MODE_KEY)
+      }
+      setIsLoading(false)
     }
     void init()
   }, [refreshSession])
@@ -195,8 +202,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           client_id: GOOGLE_CLIENT_ID,
           scope: REQUIRED_SCOPES,
           ux_mode: 'popup',
-          // @ts-ignore - access_type is supported but might be missing in some type definitions
           access_type: 'offline',
+          prompt: 'consent',
           callback: async (response) => {
             if (response.error) {
               setError(response.error === 'access_denied' ? 'Access denied. Please try again.' : response.error)
@@ -209,6 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               try {
                 const loginResponse = await fetch('/api/auth/login', {
                   method: 'POST',
+                  credentials: 'same-origin',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ code: response.code }),
                 })
@@ -281,25 +289,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (activeMode === 'google') {
       try {
-        await fetch('/api/auth/logout', { method: 'POST' })
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
       } catch (e) {
         console.error('Logout error:', e)
       }
     }
 
     void clearCache()
-    setMode(null)
-    setAccessToken(null)
-    setExpiryTime(null)
-    setIsExpiring(false)
     setError(null)
-    localStorage.removeItem(MODE_KEY)
-    clearGoogleSession()
+    clearAuthState()
 
     if (activeMode === 'google' && currentToken && window.google) {
       window.google.accounts.oauth2.revoke(currentToken, () => undefined)
     }
-  }, [accessToken, mode])
+  }, [accessToken, clearAuthState, mode])
 
   return (
     <AuthContext.Provider

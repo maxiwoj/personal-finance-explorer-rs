@@ -1,6 +1,13 @@
 import { SPREADSHEET_ID, SHEETS_API_BASE, SHEETS } from './config'
 import type { Transaction } from './types'
 
+export class SheetsApiError extends Error {
+  constructor(message: string, public status: number) {
+    super(message)
+    this.name = 'SheetsApiError'
+  }
+}
+
 function parseTimestamp(timestampStr: string): Date {
   // Always try DD/MM/YYYY format first (European format)
   // Match: DD/MM/YYYY with optional time (any separator: space, T, or nothing)
@@ -139,8 +146,16 @@ export async function fetchSheetData(
   })
   
   if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error?.message || 'Failed to fetch sheet data')
+    let message = 'Failed to fetch sheet data'
+
+    try {
+      const error = await response.json()
+      message = error.error?.message || message
+    } catch {
+      // ignore JSON parsing issues and keep fallback message
+    }
+
+    throw new SheetsApiError(message, response.status)
   }
   
   const data = await response.json()
