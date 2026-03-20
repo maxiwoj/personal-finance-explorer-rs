@@ -35,18 +35,86 @@ function hashString(str: string): number {
   return hash
 }
 
+function normalizeHex(hex: string): string {
+  const trimmed = hex.trim().replace('#', '')
+  if (trimmed.length === 3) {
+    return trimmed
+      .split('')
+      .map((char) => char + char)
+      .join('')
+  }
+
+  return trimmed
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const normalized = normalizeHex(hex)
+
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+    return null
+  }
+
+  const value = Number.parseInt(normalized, 16)
+
+  return {
+    r: (value >> 16) & 255,
+    g: (value >> 8) & 255,
+    b: value & 255,
+  }
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  return `#${[r, g, b]
+    .map((channel) => Math.max(0, Math.min(255, Math.round(channel))).toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
+function mixHexColors(colorA: string, colorB: string, weight = 0.5): string {
+  const a = hexToRgb(colorA)
+  const b = hexToRgb(colorB)
+
+  if (!a || !b) {
+    return colorA
+  }
+
+  return rgbToHex(
+    a.r * (1 - weight) + b.r * weight,
+    a.g * (1 - weight) + b.g * weight,
+    a.b * (1 - weight) + b.b * weight
+  )
+}
+
+export function withAlpha(color: string, alpha: number): string {
+  const rgb = hexToRgb(color)
+
+  if (!rgb) {
+    return color
+  }
+
+  const clampedAlpha = Math.max(0, Math.min(1, alpha))
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${clampedAlpha})`
+}
+
+export function getMutedChartColor(color: string, isDark: boolean): string {
+  if (!isDark) {
+    return color
+  }
+
+  return mixHexColors(color, '#94a3b8', 0.3)
+}
+
 export function getCategoryColor(category: string): string {
   const key = category.toLowerCase().trim()
-  
+
   // Return cached color if already assigned
   if (assignedColors.has(key)) {
     return assignedColors.get(key)!
   }
-  
+
   // Find an unused color if possible
   const usedColors = new Set(assignedColors.values())
   const hash = hashString(key)
-  
+
   // Try to find an unused color starting from the hash position
   for (let i = 0; i < COLORS.length; i++) {
     const colorIndex = (hash + i) % COLORS.length
@@ -56,7 +124,7 @@ export function getCategoryColor(category: string): string {
       return color
     }
   }
-  
+
   // All colors used, fall back to hash-based selection
   const color = COLORS[hash % COLORS.length]
   assignedColors.set(key, color)
@@ -65,7 +133,7 @@ export function getCategoryColor(category: string): string {
 
 export function getCategoryColors(categories: string[]): Record<string, string> {
   const colorMap: Record<string, string> = {}
-  categories.forEach(category => {
+  categories.forEach((category) => {
     colorMap[category] = getCategoryColor(category)
   })
   return colorMap

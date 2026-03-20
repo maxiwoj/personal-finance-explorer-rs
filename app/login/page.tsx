@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
@@ -31,8 +32,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-            <Wallet className="h-7 w-7 text-primary" />
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary/10">
+            <img src="/logo.png" alt="Logo" className="h-full w-full object-contain p-2" />
           </div>
           <CardTitle className="text-2xl">Personal Finance Explorer</CardTitle>
           <CardDescription>
@@ -69,6 +70,15 @@ export default function LoginPage() {
           <p className="text-xs text-center text-muted-foreground">
             Google mode reads your spreadsheet. Demo mode generates sample transactions locally and supports reloading demo data.
           </p>
+
+          <div className="flex justify-center gap-4 pt-4 border-t">
+            <Link href="/terms" className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors underline underline-offset-4">
+              Terms of Service
+            </Link>
+            <Link href="/privacy" className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors underline underline-offset-4">
+              Privacy Policy
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>
