@@ -41,75 +41,66 @@ export function TransactionDetailModal({ transaction, open, onClose }: Transacti
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-xl">Transaction Details</DialogTitle>
+      <DialogContent className="sm:max-w-sm p-0 overflow-hidden border-none shadow-2xl">
+        <DialogHeader className="p-4 pb-2 border-b bg-muted/30">
+          <DialogTitle className="text-lg font-bold flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-primary" />
+            Transaction Details
+          </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
-          {/* Description */}
-          <div className="flex items-start gap-3">
-            <FileText className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Description</p>
-              <p className="text-base font-semibold">{transaction.what}</p>
-            </div>
-          </div>
-
-          {/* Amount */}
-          <div className="flex items-start gap-3">
-            <CreditCard className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Amount</p>
-              <p className="text-2xl font-bold">
-                {transaction.amountPLN.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN
+        <div className="p-4 space-y-4">
+          {/* Main Info: Amount & Description */}
+          <div className="text-center space-y-1 pb-2 border-b border-dashed">
+            <p className="text-3xl font-black tracking-tight">
+              {transaction.amountPLN.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
+              <span className="text-sm font-bold text-muted-foreground ml-1 uppercase">PLN</span>
+            </p>
+            <p className="text-base font-semibold text-foreground leading-tight">
+              {transaction.what}
+            </p>
+            {transaction.currency !== 'PLN' && (
+              <p className="text-xs font-medium text-muted-foreground bg-muted w-fit mx-auto px-2 py-0.5 rounded-full">
+                Original: {transaction.amountOriginal.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} {transaction.currency}
               </p>
-              {transaction.currency !== 'PLN' && (
-                <p className="text-sm text-muted-foreground">
-                  Original: {transaction.amountOriginal.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} {transaction.currency}
-                </p>
-              )}
-            </div>
+            )}
           </div>
 
-          {/* Category */}
-          <div className="flex items-start gap-3">
-            <Tag className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Category</p>
+          {/* Details Grid */}
+          <div className="grid grid-cols-2 gap-4 pt-1">
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <Tag className="h-3 w-3" /> Category
+              </p>
               <span
-                className="inline-block px-3 py-1 text-sm rounded-full text-white mt-1"
+                className="inline-block px-2 py-0.5 text-xs font-bold rounded-md text-white shadow-sm"
                 style={{ backgroundColor: getCategoryColor(transaction.category) }}
               >
                 {transaction.category}
               </span>
             </div>
-          </div>
 
-          {/* Date */}
-          <div className="flex items-start gap-3">
-            <Calendar className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Date</p>
-              <p className="text-base">{formatDate(transaction.timestamp)}</p>
+            <div className="space-y-1 text-right">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 justify-end">
+                <Calendar className="h-3 w-3" /> Date
+              </p>
+              <p className="text-xs font-semibold">{formatDate(transaction.timestamp)}</p>
             </div>
-          </div>
 
-          {/* Full Timestamp */}
-          <div className="flex items-start gap-3">
-            <Clock className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Full Timestamp</p>
-              <p className="text-base font-mono text-sm">{formatFullDateTime(transaction.timestamp)}</p>
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <Clock className="h-3 w-3" /> Time
+              </p>
+              <p className="text-xs font-mono font-medium">{formatFullDateTime(transaction.timestamp).split(',')[1]}</p>
             </div>
-          </div>
 
-          {/* Transaction ID */}
-          <div className="flex items-start gap-3">
-            <Hash className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Transaction ID</p>
-              <p className="text-sm font-mono break-all">{transaction.transactionId}</p>
+            <div className="space-y-1 text-right">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 justify-end">
+                <Hash className="h-3 w-3" /> ID
+              </p>
+              <p className="text-[10px] font-mono text-muted-foreground truncate" title={transaction.transactionId}>
+                {transaction.transactionId.split('-').pop()}
+              </p>
             </div>
           </div>
         </div>

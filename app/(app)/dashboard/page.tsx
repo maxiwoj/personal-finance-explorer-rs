@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { PieChart } from '@/components/charts/pie-chart'
 import { LineChart } from '@/components/charts/line-chart'
 import { TransactionsTable } from '@/components/transactions-table'
+import { TransactionDetailModal } from '@/components/transaction-detail-modal'
 import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
 import { CategoryFilter, filterByCategory } from '@/components/category-filter'
 import { DateRangeFilter, filterByDateRange } from '@/components/date-range-filter'
@@ -120,6 +121,7 @@ export default function DashboardPage() {
   const [showPreviousMonth, setShowPreviousMonth] = useState(false)
   const [limitComparisonToCurrentProgress, setLimitComparisonToCurrentProgress] = useState(false)
   const [showTransactionTimes, setShowTransactionTimes] = useState(false)
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
 
   const filteredTransactions = useMemo(() => {
     if (!transactions) return []
@@ -269,7 +271,12 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <RecentTransactionsCarousel transactions={transactions || []} limit={6} className="pb-2" />
+      <RecentTransactionsCarousel 
+        transactions={transactions || []} 
+        limit={5} 
+        className="pb-2" 
+        onTransactionClick={setSelectedTransaction}
+      />
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card>
@@ -419,7 +426,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <Card id="recent-transactions">
+      <Card id="recent-transactions" className="scroll-mt-20">
         <CardHeader>
           <CardTitle>Recent Transactions</CardTitle>
           <CardDescription>Last 20 transactions in selected period</CardDescription>
@@ -428,6 +435,12 @@ export default function DashboardPage() {
           <TransactionsTable transactions={filteredTransactions} limit={20} />
         </CardContent>
       </Card>
+
+      <TransactionDetailModal
+        transaction={selectedTransaction}
+        open={selectedTransaction !== null}
+        onClose={() => setSelectedTransaction(null)}
+      />
     </div>
   )
 }
