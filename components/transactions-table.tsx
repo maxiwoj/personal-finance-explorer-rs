@@ -164,8 +164,15 @@ export function TransactionsTable({ transactions, showCategory = true, limit }: 
                       </span>
                     </td>
                   )}
-                  <td className="py-3 text-right font-medium whitespace-nowrap">
-                    {t.amountPLN.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN
+                  <td className="py-3 text-right whitespace-nowrap">
+                    <div className="font-bold">
+                      {t.amountPLN.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN
+                    </div>
+                    {t.currency !== 'PLN' && (
+                      <div className="text-[10px] text-muted-foreground font-medium uppercase">
+                        {t.amountOriginal.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} {t.currency}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -185,20 +192,27 @@ export function TransactionsTable({ transactions, showCategory = true, limit }: 
                     <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       {formatDateOnly(t.timestamp)}
                     </div>
-                    <div className="break-words text-sm font-medium text-foreground">
+                    <div className="break-words text-sm font-medium text-foreground leading-tight">
                       {t.what}
                     </div>
                     {showCategory && (
                       <span
-                        className="inline-flex max-w-full rounded-full px-2 py-1 text-xs text-white"
+                        className="inline-flex max-w-full rounded-full px-2 py-0.5 text-[10px] font-bold text-white shadow-sm"
                         style={{ backgroundColor: getCategoryColor(t.category) }}
                       >
                         <span className="truncate">{t.category}</span>
                       </span>
                     )}
                   </div>
-                  <div className="shrink-0 text-right text-sm font-semibold whitespace-nowrap">
-                    {t.amountPLN.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN
+                  <div className="shrink-0 text-right space-y-0.5">
+                    <div className="text-sm font-bold whitespace-nowrap">
+                      {t.amountPLN.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} PLN
+                    </div>
+                    {t.currency !== 'PLN' && (
+                      <div className="text-[10px] text-muted-foreground font-medium uppercase whitespace-nowrap">
+                        {t.amountOriginal.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} {t.currency}
+                      </div>
+                    )}
                   </div>
                 </div>
               </button>
