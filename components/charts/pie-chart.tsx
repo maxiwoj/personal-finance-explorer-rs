@@ -19,7 +19,6 @@ export function PieChart({ data, onSliceClick, height = 300, showLegend = true }
 
   const chartTheme = useMemo(
     () => ({
-      legendText: isDark ? 'rgba(203, 213, 225, 0.72)' : 'rgba(71, 85, 105, 0.85)',
       tooltipBackground: isDark ? 'rgba(15, 23, 42, 0.96)' : 'rgba(255, 255, 255, 0.96)',
       tooltipBorder: isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(148, 163, 184, 0.24)',
       tooltipText: isDark ? '#e2e8f0' : '#0f172a',
@@ -27,6 +26,18 @@ export function PieChart({ data, onSliceClick, height = 300, showLegend = true }
       emphasisText: isDark ? '#f8fafc' : '#0f172a',
     }),
     [isDark]
+  )
+
+  const legendItems = useMemo(
+    () =>
+      data.map(item => {
+        const baseColor = getMutedChartColor(item.color ?? '#3b82f6', isDark)
+        return {
+          name: item.name,
+          color: withAlpha(baseColor, isDark ? 0.84 : 1),
+        }
+      }),
+    [data, isDark]
   )
 
   const option: EChartsOption = useMemo(
@@ -42,70 +53,11 @@ export function PieChart({ data, onSliceClick, height = 300, showLegend = true }
         },
         formatter: '{b}: {c} PLN ({d}%)',
       },
-      media: showLegend
-        ? [
-            {
-              query: { maxWidth: 640 },
-              option: {
-                legend: {
-                  orient: 'horizontal',
-                  left: 'center',
-                  bottom: 0,
-                  top: undefined,
-                  type: 'scroll',
-                  textStyle: {
-                    color: chartTheme.legendText,
-                    fontSize: 11,
-                  },
-                },
-                series: [
-                  {
-                    center: ['50%', '38%'],
-                    radius: ['34%', '62%'],
-                  },
-                ],
-                grid: {
-                  bottom: 84,
-                },
-              },
-            },
-            {
-              option: {
-                legend: {
-                  orient: 'vertical',
-                  right: 10,
-                  top: 'center',
-                  type: 'scroll',
-                  textStyle: {
-                    color: chartTheme.legendText,
-                    fontSize: 11,
-                  },
-                },
-                series: [
-                  {
-                    center: ['35%', '50%'],
-                    radius: ['40%', '70%'],
-                  },
-                ],
-              },
-            },
-          ]
-        : undefined,
-      legend: showLegend ? {
-        orient: 'vertical',
-        right: 10,
-        top: 'center',
-        type: 'scroll',
-        textStyle: {
-          color: chartTheme.legendText,
-          fontSize: 11,
-        },
-      } : undefined,
       series: [
         {
           type: 'pie',
           radius: ['40%', '70%'],
-          center: showLegend ? ['35%', '50%'] : ['50%', '50%'],
+          center: ['50%', '50%'],
           avoidLabelOverlap: true,
           itemStyle: {
             borderRadius: 4,
@@ -145,7 +97,7 @@ export function PieChart({ data, onSliceClick, height = 300, showLegend = true }
         },
       ],
     }),
-    [chartTheme, data, isDark, showLegend]
+    [chartTheme, data, isDark]
   )
 
   const handleClick = (params: { name?: string }) => {
@@ -155,11 +107,31 @@ export function PieChart({ data, onSliceClick, height = 300, showLegend = true }
   }
 
   return (
-    <ReactECharts
-      option={option}
-      style={{ height, width: '100%' }}
-      onEvents={{ click: handleClick }}
-      opts={{ renderer: 'svg' }}
-    />
+    <div className="flex flex-col gap-3">
+      <ReactECharts
+        option={option}
+        style={{ height, width: '100%' }}
+        onEvents={{ click: handleClick }}
+        opts={{ renderer: 'svg' }}
+      />
+      {showLegend && legendItems.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 px-2">
+          {legendItems.map(item => (
+            <button
+              key={item.name}
+              type="button"
+              onClick={() => onSliceClick?.(item.name)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            >
+              <span
+                className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
+                style={{ backgroundColor: item.color }}
+              />
+              {item.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
