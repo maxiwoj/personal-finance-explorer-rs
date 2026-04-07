@@ -12,6 +12,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { TransactionsTable } from '@/components/transactions-table'
 import { MonthYearFilter, filterByMonthYear } from '@/components/month-year-filter'
 import { DateRangeFilter, filterByDateRange } from '@/components/date-range-filter'
+import { AmountFilter, filterByAmount, type AmountFilterValue } from '@/components/amount-filter'
 import { getCategoryTotals } from '@/lib/analytics'
 import { useFilters } from '@/contexts/filter-context'
 import { AlertCircle, Search, X } from 'lucide-react'
@@ -22,13 +23,20 @@ export default function TransactionsPage() {
   const { data: transactions, isLoading, error } = useFullTransactions()
   const { filters, resetFilters } = useFilters()
   const { selectedMonths, selectedYears, selectedDateRange } = filters
-  
+
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL_VALUE)
+  const [currencyFilter, setCurrencyFilter] = useState<string>(ALL_VALUE)
   const [searchQuery, setSearchQuery] = useState('')
+  const [amountFilter, setAmountFilter] = useState<AmountFilterValue>({ min: null, max: null, field: 'amountPLN' })
 
   const categories = useMemo(() => {
     if (!transactions) return []
     return getCategoryTotals(transactions).map(c => c.category)
+  }, [transactions])
+
+  const currencies = useMemo(() => {
+    if (!transactions) return []
+    return [...new Set(transactions.map(t => t.currency))].sort()
   }, [transactions])
 
   const filteredTransactions = useMemo(() => {
@@ -50,15 +58,23 @@ export default function TransactionsPage() {
     if (categoryFilter !== ALL_VALUE) {
       filtered = filtered.filter(t => t.category.toLowerCase() === categoryFilter.toLowerCase())
     }
+
+    // Then by currency
+    if (currencyFilter !== ALL_VALUE) {
+      filtered = filtered.filter(t => t.currency === currencyFilter)
+    }
     
     // Then by search
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter(t => t.what.toLowerCase().includes(query))
     }
-    
+
+    // Then by amount
+    filtered = filterByAmount(filtered, amountFilter)
+
     return filtered
-  }, [transactions, selectedMonths, selectedYears, selectedDateRange, categoryFilter, searchQuery])
+  }, [transactions, selectedMonths, selectedYears, selectedDateRange, categoryFilter, currencyFilter, searchQuery, amountFilter])
 
   const currentMonth = String(new Date().getMonth() + 1)
   const currentYear = String(new Date().getFullYear())
@@ -66,10 +82,13 @@ export default function TransactionsPage() {
   const clearFilters = () => {
     resetFilters()
     setCategoryFilter(ALL_VALUE)
+    setCurrencyFilter(ALL_VALUE)
     setSearchQuery('')
+    setAmountFilter({ min: null, max: null, field: 'amountPLN' })
   }
 
-  const hasActiveFilters = categoryFilter !== ALL_VALUE || searchQuery !== '' ||
+  const hasActiveFilters = categoryFilter !== ALL_VALUE || currencyFilter !== ALL_VALUE || searchQuery !== '' ||
+    amountFilter.min !== null || amountFilter.max !== null ||
     selectedDateRange !== null ||
     selectedMonths.length !== 1 || selectedYears.length !== 1 ||
     selectedMonths[0] !== currentMonth || selectedYears[0] !== currentYear
@@ -143,6 +162,22 @@ export default function TransactionsPage() {
                 className="pl-9 h-9"
               />
             </div>
+
+            <AmountFilter value={amountFilter} onChange={setAmountFilter} />
+
+            <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
+              <SelectTrigger id="currency" className="w-full sm:w-[140px] h-9">
+                <SelectValue placeholder="All currencies" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>All currencies</SelectItem>
+                {currencies.map(cur => (
+                  <SelectItem key={cur} value={cur}>
+                    {cur}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger id="category" className="w-full sm:w-[180px] h-9">
