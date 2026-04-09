@@ -2,7 +2,7 @@
 
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useEffect } from 'react'
 import { useTheme } from 'next-themes'
 import { getMutedChartColor, withAlpha } from '@/lib/colors'
 
@@ -38,6 +38,7 @@ export function LineChart({
   onBrushSelect,
 }: LineChartProps) {
   const chartRef = useRef<ReactECharts>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
 
@@ -234,6 +235,16 @@ export function LineChart({
     }
   }
 
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    const observer = new ResizeObserver(() => {
+      chartRef.current?.getEchartsInstance()?.resize()
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
+
   const onChartReady = (instance: any) => {
     instance.on('brushSelected', handleBrushSelected)
     instance.on('brushselected', handleBrushSelected)
@@ -251,6 +262,7 @@ export function LineChart({
   }
 
   return (
+    <div ref={containerRef} className="min-w-0">
     <ReactECharts
       ref={chartRef}
       option={option}
@@ -262,5 +274,6 @@ export function LineChart({
       }}
       opts={{ renderer: 'svg' }}
     />
+    </div>
   )
 }
