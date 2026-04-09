@@ -56,7 +56,7 @@ export function RecentTransactionsCarousel({
       </div>
       
       {/* Native horizontal scroll for better desktop/trackpad experience */}
-      <div className="w-full overflow-x-auto pb-2 -mx-1 px-1 scrollbar-none snap-x snap-mandatory flex gap-3 scroll-smooth">
+      <div className="w-full overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory flex gap-3 scroll-smooth">
         {recentTransactions.map((transaction) => (
           <div 
             key={transaction.transactionId} 
