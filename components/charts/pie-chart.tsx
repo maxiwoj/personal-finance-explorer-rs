@@ -21,11 +21,13 @@ export function PieChart({ data, onSliceClick, height = 300, showLegend = true }
 
   useEffect(() => {
     const container = containerRef.current
-    if (!container) return
-    const observer = new ResizeObserver(() => {
-      chartRef.current?.getEchartsInstance()?.resize()
+    const parent = container?.parentElement
+    if (!parent) return
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width
+      if (width) chartRef.current?.getEchartsInstance()?.resize({ width })
     })
-    observer.observe(container)
+    observer.observe(parent)
     return () => observer.disconnect()
   }, [])
 
