@@ -67,7 +67,7 @@ export function MonthYearFilter({
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       <Select value={currentYearValue} onValueChange={handleYearChange}>
-        <SelectTrigger id="year-filter" className="w-[120px] h-9">
+        <SelectTrigger id="year-filter" className="w-full sm:w-[120px] h-9">
           <SelectValue placeholder="Year" />
         </SelectTrigger>
         <SelectContent>
@@ -81,7 +81,7 @@ export function MonthYearFilter({
       </Select>
 
       <Select value={currentMonthValue} onValueChange={handleMonthChange}>
-        <SelectTrigger id="month-filter" className="w-[140px] h-9">
+        <SelectTrigger id="month-filter" className="w-full sm:w-[140px] h-9">
           <SelectValue placeholder="Month" />
         </SelectTrigger>
         <SelectContent>
