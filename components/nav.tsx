@@ -106,14 +106,14 @@ export function Nav() {
           </div>
         )}
 
-        <Button variant="outline" size="sm" onClick={() => void handleReload()} disabled={isReloading} className="hidden md:flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={() => void handleReload()} disabled={isReloading} className="hidden md:flex items-center gap-2" title={reloadLabel}>
           <RefreshCw className={cn('h-4 w-4', isReloading && 'animate-spin')} />
-          {reloadLabel}
+          <span className="hidden lg:inline">{reloadLabel}</span>
         </Button>
 
-        <Button variant="ghost" size="sm" onClick={signOut} className="hidden md:flex items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={signOut} className="hidden md:flex items-center gap-2" title="Sign Out">
           <LogOut className="h-4 w-4" />
-          Sign Out
+          <span className="hidden lg:inline">Sign Out</span>
         </Button>
 
         <ThemeToggle className="hidden md:inline-flex" />
