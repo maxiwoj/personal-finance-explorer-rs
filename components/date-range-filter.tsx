@@ -4,6 +4,7 @@ import * as React from 'react'
 import { format } from 'date-fns'
 import { Calendar as CalendarIcon, X } from 'lucide-react'
 import { DateRange } from 'react-day-picker'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -22,6 +23,7 @@ interface DateRangeFilterProps {
 
 export function DateRangeFilter({ className }: DateRangeFilterProps) {
   const { filters, setSelectedDateRange } = useFilters()
+  const isMobile = useIsMobile()
   const { selectedDateRange } = filters
 
   const dateRange: DateRange | undefined = React.useMemo(() => {
@@ -57,7 +59,7 @@ export function DateRangeFilter({ className }: DateRangeFilterProps) {
             id="date"
             variant={'outline'}
             className={cn(
-              'w-[240px] justify-start text-left font-normal h-9 px-3',
+              'w-full sm:w-[240px] justify-start text-left font-normal h-9 px-3',
               !selectedDateRange && 'text-muted-foreground'
             )}
           >
@@ -85,7 +87,7 @@ export function DateRangeFilter({ className }: DateRangeFilterProps) {
             defaultMonth={dateRange?.from}
             selected={dateRange}
             onSelect={handleSelect}
-            numberOfMonths={2}
+            numberOfMonths={isMobile ? 1 : 2}
           />
         </PopoverContent>
       </Popover>

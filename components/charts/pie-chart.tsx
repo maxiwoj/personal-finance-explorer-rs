@@ -2,7 +2,7 @@
 
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
-import { useMemo } from 'react'
+import { useMemo, useRef, useEffect } from 'react'
 import { useTheme } from 'next-themes'
 import { getMutedChartColor, withAlpha } from '@/lib/colors'
 
@@ -16,6 +16,20 @@ interface PieChartProps {
 export function PieChart({ data, onSliceClick, height = 300, showLegend = true }: PieChartProps) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
+  const chartRef = useRef<ReactECharts>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const container = containerRef.current
+    const parent = container?.parentElement
+    if (!parent) return
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width
+      if (width) chartRef.current?.getEchartsInstance()?.resize({ width })
+    })
+    observer.observe(parent)
+    return () => observer.disconnect()
+  }, [])
 
   const chartTheme = useMemo(
     () => ({
@@ -107,8 +121,9 @@ export function PieChart({ data, onSliceClick, height = 300, showLegend = true }
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div ref={containerRef} className="flex flex-col gap-3 min-w-0">
       <ReactECharts
+        ref={chartRef}
         option={option}
         style={{ height, width: '100%' }}
         onEvents={{ click: handleClick }}
