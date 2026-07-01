@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.1](https://github.com/maxiwoj/personal-finance-explorer-rs/compare/v1.0.0...v1.0.1) (2026-04-10)
+
+
+### Bug Fixes
+
+* improve responsive layout for navbar and filters on tablet screens ([60a5e8c](https://github.com/maxiwoj/personal-finance-explorer-rs/commit/60a5e8c764aaf54e3cc151dc33509120ee6583ad))
+* improve responsive layout for navbar and filters on tablet screens ([d6e4200](https://github.com/maxiwoj/personal-finance-explorer-rs/commit/d6e420001d6acb8a987f6cbaceca8ef846ed337d))
+* make ECharts components resize with container via ResizeObserver ([1b81aea](https://github.com/maxiwoj/personal-finance-explorer-rs/commit/1b81aea014afe67f68465b81088a2e85f4dd09ff))
+* make filter inputs responsive and prevent calendar overflow on mobile ([0030c4a](https://github.com/maxiwoj/personal-finance-explorer-rs/commit/0030c4a97492f6ec714cb89f7992362684960dc9))
+* observe parent element in chart ResizeObserver to handle shrinking ([e185d70](https://github.com/maxiwoj/personal-finance-explorer-rs/commit/e185d703b638b57b301df46bdb4cfa5fd37e0515))
+* prevent horizontal page overflow from carousel and other content ([16ce0f4](https://github.com/maxiwoj/personal-finance-explorer-rs/commit/16ce0f4958a12229831378e5b9cba226e51f9d4e))
+
 ## 1.0.0 (2026-04-08)
 
 
