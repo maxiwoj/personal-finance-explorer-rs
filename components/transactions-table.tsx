@@ -24,6 +24,7 @@ interface TransactionsTableProps {
   transactions: Transaction[]
   showCategory?: boolean
   limit?: number
+  sortBy?: 'date' | 'amount'
 }
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const
@@ -52,14 +53,16 @@ function buildPageNumbers(currentPage: number, totalPages: number): number[] {
   return Array.from({ length: 5 }, (_, index) => currentPage - 2 + index)
 }
 
-export function TransactionsTable({ transactions, showCategory = true, limit }: TransactionsTableProps) {
+export function TransactionsTable({ transactions, showCategory = true, limit, sortBy = 'date' }: TransactionsTableProps) {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(limit ?? 20)
 
   const sorted = useMemo(
-    () => [...transactions].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()),
-    [transactions]
+    () => [...transactions].sort((a, b) =>
+      sortBy === 'amount' ? b.amountPLN - a.amountPLN : b.timestamp.getTime() - a.timestamp.getTime()
+    ),
+    [transactions, sortBy]
   )
 
   const availablePageSizes = useMemo(() => {
