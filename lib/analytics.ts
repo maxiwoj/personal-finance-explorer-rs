@@ -79,7 +79,7 @@ export interface CumulativeSpendingPoint {
   transactionNames?: string[]
 }
 
-function roundCurrency(value: number): number {
+export function roundCurrency(value: number): number {
   return Math.round(value * 100) / 100
 }
 
@@ -183,4 +183,102 @@ export function filterTransactions(
     }
     return true
   })
+}
+
+export function getAvailableYears(transactions: Transaction[]): number[] {
+  const years = new Set<number>()
+
+  transactions.forEach(t => {
+    const [, year] = t.monthYear.split('_').map(Number)
+    if (!Number.isNaN(year)) years.add(year)
+  })
+
+  return Array.from(years).sort((a, b) => b - a)
+}
+
+export interface MonthBreakdown {
+  monthIndex: number
+  monthYear: string
+  label: string
+  total: number
+  transactions: Transaction[]
+  categoryTotals: CategoryTotal[]
+}
+
+const SHORT_MONTH_LABELS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+]
+
+export function getYearlyMonthlyBreakdown(transactions: Transaction[], year: number): MonthBreakdown[] {
+  const buckets: Transaction[][] = Array.from({ length: 12 }, () => [])
+
+  transactions.forEach(t => {
+    const [month, txYear] = t.monthYear.split('_').map(Number)
+    if (txYear === year && month >= 1 && month <= 12) {
+      buckets[month - 1].push(t)
+    }
+  })
+
+  return buckets.map((monthTransactions, monthIndex) => ({
+    monthIndex,
+    monthYear: `${monthIndex + 1}_${year}`,
+    label: SHORT_MONTH_LABELS[monthIndex],
+    total: roundCurrency(monthTransactions.reduce((sum, t) => sum + t.amountPLN, 0)),
+    transactions: monthTransactions,
+    categoryTotals: getCategoryTotals(monthTransactions),
+  }))
+}
+
+export interface YearlyCategorySeries {
+  name: string
+  color: string
+  data: number[]
+}
+
+const OTHER_CATEGORY_COLOR = '#94a3b8'
+
+export function getYearlyStackedCategorySeries(
+  breakdown: MonthBreakdown[],
+  maxCategories = 7
+): YearlyCategorySeries[] {
+  const yearTotals = new Map<string, number>()
+  breakdown.forEach(month => {
+    month.categoryTotals.forEach(c => {
+      yearTotals.set(c.category, (yearTotals.get(c.category) || 0) + c.total)
+    })
+  })
+
+  const rankedCategories = Array.from(yearTotals.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([category]) => category)
+
+  const topCategories = rankedCategories.slice(0, maxCategories)
+  const topSet = new Set(topCategories)
+  const hasOther = rankedCategories.length > maxCategories
+
+  const series: YearlyCategorySeries[] = topCategories.map(category => ({
+    name: category,
+    color: getCategoryColor(category),
+    data: breakdown.map(month => {
+      const match = month.categoryTotals.find(c => c.category === category)
+      return match ? match.total : 0
+    }),
+  }))
+
+  if (hasOther) {
+    series.push({
+      name: 'Other',
+      color: OTHER_CATEGORY_COLOR,
+      data: breakdown.map(month =>
+        roundCurrency(
+          month.categoryTotals
+            .filter(c => !topSet.has(c.category))
+            .reduce((sum, c) => sum + c.total, 0)
+        )
+      ),
+    })
+  }
+
+  return series
 }
