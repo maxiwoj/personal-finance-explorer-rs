@@ -285,11 +285,13 @@ export default function YearlySummaryPage() {
             </div>
           ) : (
             <div className="grid gap-6 lg:grid-cols-2">
-              <PieChart
-                data={selectedMonth.categoryTotals.map(c => ({ name: c.category, value: c.total, color: c.color }))}
-                onSliceClick={(name) => setSelectedCategory(prev => prev === name ? null : name)}
-                height={280}
-              />
+              <div>
+                <PieChart
+                  data={selectedMonth.categoryTotals.map(c => ({ name: c.category, value: c.total, color: c.color }))}
+                  onSliceClick={(name) => setSelectedCategory(prev => prev === name ? null : name)}
+                  height={280}
+                />
+              </div>
               <div className="space-y-2">
                 {selectedCategory && (
                   <div className="flex items-center justify-between">
