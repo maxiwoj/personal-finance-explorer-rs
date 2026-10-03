@@ -27,8 +27,19 @@ export async function POST() {
     })
   } catch (error: any) {
     console.error('Refresh error:', error)
-    const cookieStore = await cookies()
-    cookieStore.delete(COOKIE_NAME)
-    return NextResponse.json({ error: 'Session expired' }, { status: 401 })
+
+    // Only a revoked/expired refresh token means the session is gone. Transient failures
+    // (network, Google 5xx) must keep the cookie so the next attempt can succeed.
+    if (isInvalidGrant(error)) {
+      const cookieStore = await cookies()
+      cookieStore.delete(COOKIE_NAME)
+      return NextResponse.json({ error: 'Session expired' }, { status: 401 })
+    }
+
+    return NextResponse.json({ error: 'Token refresh failed, try again' }, { status: 503 })
   }
+}
+
+function isInvalidGrant(error: any): boolean {
+  return error?.response?.data?.error === 'invalid_grant' || error?.message === 'invalid_grant'
 }
